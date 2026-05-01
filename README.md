@@ -28,11 +28,27 @@
 1. 双击 `00-install-windows.bat` 安装本地运行环境。
 2. 双击 `01-anonymize-data.bat`，按提示拖入或输入 CSV/XLSX 文件路径，生成脱敏文件和匹配表。
 3. 双击 `02-restore-report.bat`，按提示拖入或输入报告文件路径，再选择匹配文件，生成反脱敏报告。
+4. 如果想用网页界面，双击 `03-launch-web-ui-windows.bat`，浏览器打开后上传 Excel/CSV 即可处理。
 
 也可以把文件直接拖到 bat 上：
 
 - 把原始 CSV/XLSX 拖到 `01-anonymize-data.bat`
 - 把待恢复报告拖到 `02-restore-report.bat`
+
+### 本地网页界面
+
+安装完成后，Windows 用户可以双击：
+
+```text
+03-launch-web-ui-windows.bat
+```
+
+浏览器会打开本地页面：
+
+- `数据脱敏`：上传 Excel/CSV，下载脱敏 Excel、脱敏 CSV、匹配文件和匹配表
+- `报告反脱敏`：上传 `.md`/`.txt` 报告和匹配文件，下载恢复后的报告
+
+网页运行在本机 `127.0.0.1`，文件只在本地 Python 进程中处理。
 
 ### 命令行安装
 
