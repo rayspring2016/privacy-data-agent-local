@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from privacy_data_agent.llm_client import FakeModelProvider, OpenAIModelProvider
+from privacy_data_agent.local_pipeline import anonymize_file, restore_report_file
 from privacy_data_agent.pipeline import run_analysis
 
 app = typer.Typer(no_args_is_help=True)
@@ -14,6 +15,32 @@ app = typer.Typer(no_args_is_help=True)
 @app.command("_noop", hidden=True)
 def _noop() -> None:
     """Keep Typer in multi-command mode so `analyze` remains a subcommand."""
+
+
+@app.command()
+def anonymize(
+    input_path: Path = typer.Argument(..., exists=True, readable=True),
+    output_dir: Path = typer.Option(Path("runs/local"), "--output-dir", "-o"),
+) -> None:
+    artifacts = anonymize_file(input_path=input_path, output_dir=output_dir)
+    typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
+    typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
+    typer.echo(f"Mapping table: {artifacts.mapping_table_path}")
+    typer.echo("Keep mapping files local. They contain original sensitive values.")
+
+
+@app.command()
+def restore(
+    report_path: Path = typer.Argument(..., exists=True, readable=True),
+    mapping_path: Path = typer.Option(..., "--mapping", "-m", exists=True, readable=True),
+    output_path: Path = typer.Option(Path("runs/local/report.restored.md"), "--output", "-o"),
+) -> None:
+    artifacts = restore_report_file(
+        report_path=report_path,
+        mapping_path=mapping_path,
+        output_path=output_path,
+    )
+    typer.echo(f"Restored report: {artifacts.restored_report_path}")
 
 
 @app.command()

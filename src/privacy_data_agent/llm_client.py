@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from typing import Protocol
 
-from openai import OpenAI
-
 from privacy_data_agent.models import AnalysisResult
 
 
@@ -42,6 +40,8 @@ class FakeModelProvider:
 
 class OpenAIModelProvider:
     def __init__(self, model: str, base_url: str | None = None, api_key: str | None = None) -> None:
+        from openai import OpenAI
+
         self.model = model
         self.client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"), base_url=base_url)
 

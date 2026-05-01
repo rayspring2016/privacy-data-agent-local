@@ -1,16 +1,14 @@
 # Privacy Data Agent
 
-Local-first pipeline for sensitive HR and business data.
+纯本地的数据脱敏和报告反脱敏小工具，适合把表格发给模型或外部人员前先替换敏感信息；模型分析不在这个本地流程里发生。
 
-## Flow
+## Local Flow
 
-1. Read CSV or XLSX locally.
-2. Detect sensitive values from columns and patterns.
-3. Replace raw values with stable tokens.
-4. Save token mapping in an encrypted local file.
-5. Send only anonymized CSV to the model.
-6. Save the anonymized model report.
-7. Restore original values into the final report locally.
+1. 同事把 CSV 或 XLSX 放到本机。
+2. 本地运行 `anonymize`，生成脱敏后的 `anonymized.csv`。
+3. 同时生成匹配表 `mapping.local.json` 和 `mapping_table.csv`。
+4. 同事把脱敏文件拿去分析，得到带 token 的报告。
+5. 本地运行 `restore`，按匹配表把报告里的 token 还原成原始姓名、部门、客户等。
 
 ## Sensitive Data Covered
 
@@ -21,41 +19,66 @@ Local-first pipeline for sensitive HR and business data.
 - Phone numbers
 - Email addresses
 
-## Generate Local Mapping Key
+## Install
+
+macOS / Linux:
 
 ```bash
-export PRIVACY_AGENT_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
-Keep this key local. Without it, `mapping.enc.json` cannot be restored.
+Windows PowerShell:
 
-## Run with Fake Provider
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e .
+```
+
+## Anonymize a File
 
 ```bash
-privacy-data-agent analyze tests/fixtures/hr_sample.csv --output-dir runs/manual
+privacy-data-agent anonymize input.csv --output-dir runs/local
 ```
 
-The fake provider is deterministic and does not call the network. It writes `runs/manual/model_prompt.anonymized.md` so you can inspect exactly what would have been sent to the model.
+Outputs:
 
-## Run with OpenAI-Compatible Provider
+- `runs/local/anonymized.csv`: 脱敏后的数据文件
+- `runs/local/mapping.local.json`: 程序使用的匹配文件
+- `runs/local/mapping_table.csv`: 方便人工查看的匹配表
+- `runs/local/local_manifest.json`: 本次处理的文件清单
+
+`mapping.local.json` 和 `mapping_table.csv` 包含原始敏感值，只应保存在本地。
+
+## Restore a Report
+
+如果报告里仍是 `EMP_0001`、`DEPT_0001`、`CUSTOMER_0001` 这样的 token：
 
 ```bash
-export OPENAI_API_KEY="your_api_key"
-privacy-data-agent analyze tests/fixtures/hr_sample.csv \
-  --output-dir runs/openai \
-  --provider openai \
-  --model gpt-4.1-mini \
-  --instruction "请分析销售额、客户跟进风险和可复制动作。"
+privacy-data-agent restore report.anonymized.md \
+  --mapping runs/local/mapping.local.json \
+  --output runs/local/report.restored.md
 ```
 
-## Output Files
+也可以使用 CSV 匹配表：
 
-- `anonymized.csv`: model-safe data with tokens.
-- `mapping.enc.json`: encrypted local mapping file.
-- `model_prompt.anonymized.md`: prompt captured by fake provider.
-- `model_report.anonymized.md`: model output before restoration.
-- `model_report.restored.md`: final local report with original values restored.
-- `run_manifest.json`: file manifest for the run.
+```bash
+privacy-data-agent restore report.anonymized.md \
+  --mapping runs/local/mapping_table.csv \
+  --output runs/local/report.restored.md
+```
+
+## Optional Model Analysis
+
+默认安装不需要 OpenAI 依赖。本地脱敏和本地恢复不调用大模型。
+
+如果以后要重新启用模型分析扩展：
+
+```bash
+pip install -e ".[model]"
+```
 
 ## Privacy Check
 
@@ -65,4 +88,4 @@ Run:
 pytest -q
 ```
 
-The test suite verifies raw fixture values do not appear in anonymized data, captured model prompts, or anonymized model reports.
+The test suite verifies raw fixture values do not appear in anonymized data, captured prompts, or anonymized reports.
