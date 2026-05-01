@@ -21,6 +21,21 @@
 
 ## Install
 
+### Windows 双击版
+
+给不熟悉命令行的同事，可以直接使用根目录下的 `.bat` 文件：
+
+1. 双击 `00-install-windows.bat` 安装本地运行环境。
+2. 双击 `01-anonymize-data.bat`，按提示拖入或输入 CSV/XLSX 文件路径，生成脱敏文件和匹配表。
+3. 双击 `02-restore-report.bat`，按提示拖入或输入报告文件路径，再选择匹配文件，生成反脱敏报告。
+
+也可以把文件直接拖到 bat 上：
+
+- 把原始 CSV/XLSX 拖到 `01-anonymize-data.bat`
+- 把待恢复报告拖到 `02-restore-report.bat`
+
+### 命令行安装
+
 macOS / Linux:
 
 ```bash
