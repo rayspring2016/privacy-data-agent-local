@@ -2,6 +2,7 @@ from cryptography.fernet import Fernet
 from typer.testing import CliRunner
 
 from privacy_data_agent.cli import app
+from privacy_data_agent.mapping_store import load_local_mapping
 
 
 def test_cli_requires_mapping_key(tmp_path, monkeypatch):
@@ -40,8 +41,11 @@ def test_cli_anonymize_and_restore_are_local_only(tmp_path, monkeypatch):
     assert (tmp_path / "mapping.local.json").exists()
     assert (tmp_path / "mapping_table.csv").exists()
 
+    mapping = load_local_mapping(tmp_path / "mapping.local.json")
+    employee_token = next(entry.token for entry in mapping.entries if entry.original == "张三")
+    customer_token = next(entry.token for entry in mapping.entries if entry.original == "上海春雷科技有限公司")
     report_path = tmp_path / "report.anonymized.md"
-    report_path.write_text("EMP_0001 负责 CUSTOMER_0001。", encoding="utf-8")
+    report_path.write_text(f"{employee_token} 负责 {customer_token}。", encoding="utf-8")
     restored_path = tmp_path / "report.restored.md"
 
     restore_result = runner.invoke(

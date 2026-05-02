@@ -13,8 +13,8 @@ def test_mapping_store_encrypts_raw_values(tmp_path):
     key = Fernet.generate_key().decode()
     mapping = MappingFile(
         entries=[
-            MappingEntry(entity_type=EntityType.EMPLOYEE, original="张三", token="EMP_0001"),
-            MappingEntry(entity_type=EntityType.CUSTOMER, original="上海春雷科技有限公司", token="CUSTOMER_0001"),
+            MappingEntry(entity_type=EntityType.EMPLOYEE, original="张三", token="PDA_AAAAAAAAAAAAAAAA"),
+            MappingEntry(entity_type=EntityType.CUSTOMER, original="上海春雷科技有限公司", token="PDA_BBBBBBBBBBBBBBBB"),
         ]
     )
     path = tmp_path / "mapping.enc.json"
@@ -30,8 +30,8 @@ def test_mapping_store_encrypts_raw_values(tmp_path):
 def test_mapping_table_round_trips_for_local_restore(tmp_path):
     mapping = MappingFile(
         entries=[
-            MappingEntry(entity_type=EntityType.EMPLOYEE, original="张三", token="EMP_0001"),
-            MappingEntry(entity_type=EntityType.DEPARTMENT, original="华东销售一部", token="DEPT_0001"),
+            MappingEntry(entity_type=EntityType.EMPLOYEE, original="张三", token="PDA_AAAAAAAAAAAAAAAA"),
+            MappingEntry(entity_type=EntityType.DEPARTMENT, original="华东销售一部", token="PDA_BBBBBBBBBBBBBBBB"),
         ]
     )
     path = tmp_path / "mapping_table.csv"

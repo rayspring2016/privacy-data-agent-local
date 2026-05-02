@@ -9,20 +9,14 @@ from pydantic import BaseModel, Field
 class EntityType(StrEnum):
     EMPLOYEE = "employee"
     ID_NUMBER = "id_number"
+    EMPLOYEE_ID = "employee_id"
     DEPARTMENT = "department"
     CUSTOMER = "customer"
     PHONE = "phone"
     EMAIL = "email"
 
 
-TOKEN_PREFIX: dict[EntityType, str] = {
-    EntityType.EMPLOYEE: "EMP",
-    EntityType.ID_NUMBER: "ID",
-    EntityType.DEPARTMENT: "DEPT",
-    EntityType.CUSTOMER: "CUSTOMER",
-    EntityType.PHONE: "PHONE",
-    EntityType.EMAIL: "EMAIL",
-}
+ANON_TOKEN_PREFIX = "PDA"
 
 
 class MappingEntry(BaseModel):

@@ -21,6 +21,9 @@ echo 浏览器打开后即可上传 Excel/CSV 进行脱敏。
 echo 如需退出，请关闭本窗口。
 echo.
 
-".venv\Scripts\python.exe" -m streamlit run src\privacy_data_agent\web_app.py --server.address 127.0.0.1 --server.port 8501
+set STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+set STREAMLIT_CLIENT_TOOLBAR_MODE=viewer
+
+".venv\Scripts\python.exe" -m streamlit run src\privacy_data_agent\web_app.py --server.address 127.0.0.1 --server.port 8501 --browser.gatherUsageStats false --client.toolbarMode viewer
 
 pause

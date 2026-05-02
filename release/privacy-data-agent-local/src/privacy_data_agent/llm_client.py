@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import os
+import csv
+from io import StringIO
 from pathlib import Path
 from typing import Protocol
 
+from privacy_data_agent.detectors import detect_column_entity_type
 from privacy_data_agent.models import AnalysisResult
 
 
@@ -29,11 +32,12 @@ class FakeModelProvider:
         if self.captured_prompt_path is not None:
             self.captured_prompt_path.parent.mkdir(parents=True, exist_ok=True)
             self.captured_prompt_path.write_text(prompt, encoding="utf-8")
+        tokens = _pick_report_tokens(anonymized_csv)
         return AnalysisResult(
             anonymized_report=(
                 "# 数据分析报告\n\n"
-                "EMP_0001 在 DEPT_0001 的 CUSTOMER_0001 相关业绩表现突出。\n\n"
-                "建议复盘 CUSTOMER_0001 的成交过程，并让 EMP_0001 输出方法论。"
+                f"{tokens['employee']} 在 {tokens['department']} 的 {tokens['customer']} 相关业绩表现突出。\n\n"
+                f"建议复盘 {tokens['customer']} 的成交过程，并让 {tokens['employee']} 输出方法论。"
             )
         )
 
@@ -57,3 +61,24 @@ class OpenAIModelProvider:
         )
         content = response.choices[0].message.content or ""
         return AnalysisResult(anonymized_report=content)
+
+
+def _pick_report_tokens(anonymized_csv: str) -> dict[str, str]:
+    rows = list(csv.DictReader(StringIO(anonymized_csv)))
+    fallback_token = "PDA_PLACEHOLDER"
+    picked = {"employee": fallback_token, "department": fallback_token, "customer": fallback_token}
+    if not rows:
+        return picked
+    first_row = rows[0]
+    for column_name, value in first_row.items():
+        entity_type = detect_column_entity_type(column_name)
+        if entity_type is None or not value:
+            continue
+        key = {
+            "employee": "employee",
+            "department": "department",
+            "customer": "customer",
+        }.get(entity_type.value)
+        if key and picked[key] == fallback_token:
+            picked[key] = value
+    return picked

@@ -37,8 +37,11 @@ def test_pipeline_never_sends_raw_sensitive_values_to_model(tmp_path):
         assert raw not in anonymized_text
         assert raw not in anonymized_report
 
-    assert "EMP_0001" in prompt_text
-    assert "CUSTOMER_0001" in anonymized_report
+    assert "PDA_" in prompt_text
+    assert "PDA_" in anonymized_report
+    for type_revealing_prefix in ["EMP_", "ID_", "DEPT_", "CUSTOMER_", "PHONE_", "EMAIL_"]:
+        assert type_revealing_prefix not in prompt_text
+        assert type_revealing_prefix not in anonymized_report
     assert "张三" in restored_report
     assert "上海春雷科技有限公司" in restored_report
     assert load_mapping_file(artifacts.mapping_path, key).entries
