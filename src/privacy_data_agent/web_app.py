@@ -8,8 +8,36 @@ from privacy_data_agent.web_helpers import anonymize_upload, restore_report_uplo
 def main() -> None:
     st.set_page_config(
         page_title="本地数据脱敏工具",
-        page_icon="🔒",
+        page_icon="lock",
         layout="centered",
+    )
+    st.markdown(
+        """
+        <style>
+        header, footer, #MainMenu, [data-testid="stToolbar"], [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"], .stDeployButton {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+        }
+        .block-container {
+            padding-top: 4rem;
+        }
+        @media (max-width: 480px) {
+            .block-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+                padding-top: 3rem;
+            }
+            h1 {
+                font-size: 2.25rem !important;
+                line-height: 1.15 !important;
+                word-break: keep-all;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
 
     st.title("本地数据脱敏工具")
