@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 src/*.egg-info/
 .claude/
+.gstack/
 .DS_Store
 docs/superpowers/.DS_Store
 runs/
