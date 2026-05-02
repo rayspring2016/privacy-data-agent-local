@@ -30,24 +30,24 @@
 
 ### Windows 双击版
 
-给不熟悉命令行的同事，可以直接使用根目录下的 `.bat` 文件：
+给不熟悉命令行的同事，可以直接使用 `windows/` 文件夹下的 `.bat` 文件：
 
-1. 双击 `00-install-windows.bat` 安装本地运行环境。
-2. 双击 `01-anonymize-data.bat`，按提示拖入或输入 CSV/XLSX 文件路径，生成脱敏文件和匹配表。
-3. 双击 `02-restore-report.bat`，按提示拖入或输入报告文件路径，再选择匹配文件，生成反脱敏报告。
-4. 如果想用网页界面，双击 `03-launch-web-ui-windows.bat`，浏览器打开后上传 Excel/CSV 即可处理。
+1. 双击 `windows/00-install-windows.bat` 安装本地运行环境。
+2. 双击 `windows/01-anonymize-data.bat`，按提示拖入或输入 CSV/XLSX 文件路径，生成脱敏文件和匹配表。
+3. 双击 `windows/02-restore-report.bat`，按提示拖入或输入报告文件路径，再选择匹配文件，生成反脱敏报告。
+4. 如果想用网页界面，双击 `windows/03-launch-web-ui-windows.bat`，浏览器打开后上传 Excel/CSV 即可处理。
 
 也可以把文件直接拖到 bat 上：
 
-- 把原始 CSV/XLSX 拖到 `01-anonymize-data.bat`
-- 把待恢复报告拖到 `02-restore-report.bat`
+- 把原始 CSV/XLSX 拖到 `windows/01-anonymize-data.bat`
+- 把待恢复报告拖到 `windows/02-restore-report.bat`
 
 ### Mac 双击版
 
-给 Mac 同事使用根目录下的 `.command` 文件：
+给 Mac 同事使用 `mac/` 文件夹下的 `.command` 文件：
 
-1. 双击 `00-install-mac.command` 安装本地运行环境。
-2. 双击 `03-launch-web-ui-mac.command` 打开本地网页界面。
+1. 双击 `mac/00-install-mac.command` 安装本地运行环境。
+2. 双击 `mac/03-launch-web-ui-mac.command` 打开本地网页界面。
 3. 浏览器打开后上传 Excel/CSV，下载脱敏文件和匹配表。
 4. 需要反脱敏报告时，切换到「报告反脱敏」，上传报告和匹配文件。
 
@@ -76,8 +76,8 @@ pip install -e .
 安装完成后启动：
 
 ```text
-Windows: 03-launch-web-ui-windows.bat
-Mac:     03-launch-web-ui-mac.command
+Windows: windows/03-launch-web-ui-windows.bat
+Mac:     mac/03-launch-web-ui-mac.command
 ```
 
 浏览器打开本地页面，提供两个功能：
@@ -88,7 +88,7 @@ Mac:     03-launch-web-ui-mac.command
 
 | 文件 | 说明 |
 |------|------|
-| `anonymized.xlsx` | 脱敏后的数据，可安全发送给大模型或外部 |
+| `anonymized.xlsx` | 脱敏后的数据，可安全发送给大模型或外部；XLSX 会保留原有格式、多 sheet、隐藏 sheet、隐藏行列 |
 | `mapping.local.json` | 匹配文件，含原始敏感信息，**仅限本地保存** |
 | `README.txt` | 中文使用说明 |
 

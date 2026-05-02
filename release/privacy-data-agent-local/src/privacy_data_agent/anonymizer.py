@@ -16,22 +16,34 @@ class AnonymizeResult(BaseModel):
     mapping: MappingFile
 
 
+class AnonymizerState:
+    def __init__(self, seed_mapping: MappingFile | None = None) -> None:
+        self.used_tokens: set[str] = set()
+        self.token_by_key: dict[tuple[EntityType, str], str] = {}
+        self.entries: list[MappingEntry] = list(seed_mapping.entries) if seed_mapping else []
+        if seed_mapping:
+            for entry in seed_mapping.entries:
+                self.token_by_key[(entry.entity_type, entry.original)] = entry.token
+                self.used_tokens.add(entry.token)
+
+    def token_for(self, entity_type: EntityType, original: str) -> str:
+        cache_key = (entity_type, original)
+        if cache_key not in self.token_by_key:
+            token = _new_token(self.used_tokens)
+            self.token_by_key[cache_key] = token
+            self.entries.append(MappingEntry(entity_type=entity_type, original=original, token=token))
+        return self.token_by_key[cache_key]
+
+    def to_mapping_file(self) -> MappingFile:
+        return MappingFile(entries=self.entries)
+
+
 def anonymize_dataframe(
     df: pd.DataFrame,
     seed_mapping: MappingFile | None = None,
 ) -> AnonymizeResult:
-    used_tokens: set[str] = set()
-    # Pre-populate from seed so existing entities reuse their tokens within the same batch
-    token_by_key: dict[tuple[EntityType, str], str] = {}
-    if seed_mapping:
-        for entry in seed_mapping.entries:
-            token_by_key[(entry.entity_type, entry.original)] = entry.token
-            used_tokens.add(entry.token)
-
+    state = AnonymizerState(seed_mapping=seed_mapping)
     output = df.copy().astype("object")
-    entries: list[MappingEntry] = list(seed_mapping.entries) if seed_mapping else []
-    seen_in_seed: set[tuple[EntityType, str]] = set(token_by_key)
-
     for column in output.columns:
         column_type = detect_column_entity_type(str(column))
         for row_index, value in output[column].items():
@@ -41,14 +53,9 @@ def anonymize_dataframe(
             entity_type = column_type or detect_cell_entity_type(text)
             if entity_type is None:
                 continue
-            cache_key = (entity_type, text)
-            if cache_key not in token_by_key:
-                token = _new_token(used_tokens)
-                token_by_key[cache_key] = token
-                entries.append(MappingEntry(entity_type=entity_type, original=text, token=token))
-            output.at[row_index, column] = token_by_key[cache_key]
+            output.at[row_index, column] = state.token_for(entity_type, text)
 
-    return AnonymizeResult(dataframe=output, mapping=MappingFile(entries=entries))
+    return AnonymizeResult(dataframe=output, mapping=state.to_mapping_file())
 
 
 def _new_token(used_tokens: set[str]) -> str:

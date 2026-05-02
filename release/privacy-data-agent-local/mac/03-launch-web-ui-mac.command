@@ -1,5 +1,5 @@
 #!/bin/zsh
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "========================================"
 echo "Privacy Data Agent - Mac 本地网页界面"

@@ -1,4 +1,5 @@
 from cryptography.fernet import Fernet
+from openpyxl import Workbook, load_workbook
 from typer.testing import CliRunner
 
 from privacy_data_agent.cli import app
@@ -63,3 +64,29 @@ def test_cli_anonymize_and_restore_are_local_only(tmp_path, monkeypatch):
     assert restore_result.exit_code == 0
     assert "Restored report:" in restore_result.output
     assert "张三" in restored_path.read_text(encoding="utf-8")
+
+
+def test_cli_anonymize_xlsx_outputs_preserved_workbook(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "员工"
+    worksheet["A1"] = "姓名"
+    worksheet["A2"] = "张三"
+    hidden = workbook.create_sheet("隐藏")
+    hidden.sheet_state = "hidden"
+    hidden["A1"] = "客户名称"
+    hidden["A2"] = "上海春雷科技有限公司"
+    input_path = tmp_path / "input.xlsx"
+    workbook.save(input_path)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["anonymize", str(input_path), "--output-dir", str(tmp_path / "out")])
+
+    assert result.exit_code == 0
+    output_path = tmp_path / "out" / "anonymized.xlsx"
+    assert output_path.exists()
+    output = load_workbook(output_path)
+    assert output["员工"]["A2"].value.startswith("PDA_")
+    assert output["隐藏"]["A2"].value.startswith("PDA_")
+    assert output["隐藏"].sheet_state == "hidden"

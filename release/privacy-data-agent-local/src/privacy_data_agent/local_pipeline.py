@@ -10,6 +10,7 @@ from privacy_data_agent.anonymizer import anonymize_dataframe
 from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_table, save_plain_mapping_file
 from privacy_data_agent.pipeline import read_input_table
 from privacy_data_agent.restorer import restore_report
+from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_file
 
 
 class LocalAnonymizeArtifacts(BaseModel):
@@ -29,20 +30,27 @@ def anonymize_file(input_path: str | Path, output_dir: str | Path) -> LocalAnony
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     run_id = uuid4().hex[:12]
+    input_file = Path(input_path)
+    anonymized_path = output_path / ("anonymized.xlsx" if input_file.suffix.lower() == ".xlsx" else "anonymized.csv")
     artifacts = LocalAnonymizeArtifacts(
         run_id=run_id,
         output_dir=output_path,
-        anonymized_data_path=output_path / "anonymized.csv",
+        anonymized_data_path=anonymized_path,
         mapping_json_path=output_path / "mapping.local.json",
         mapping_table_path=output_path / "mapping_table.csv",
         manifest_path=output_path / "local_manifest.json",
     )
 
-    source_df = read_input_table(input_path)
-    anonymized = anonymize_dataframe(source_df)
-    anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
-    save_plain_mapping_file(anonymized.mapping, artifacts.mapping_json_path)
-    save_mapping_table(anonymized.mapping, artifacts.mapping_table_path)
+    if input_file.suffix.lower() == ".xlsx":
+        anonymized_workbook = anonymize_xlsx_file(input_file, artifacts.anonymized_data_path)
+        mapping = anonymized_workbook.mapping
+    else:
+        source_df = read_input_table(input_file)
+        anonymized = anonymize_dataframe(source_df)
+        anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
+        mapping = anonymized.mapping
+    save_plain_mapping_file(mapping, artifacts.mapping_json_path)
+    save_mapping_table(mapping, artifacts.mapping_table_path)
 
     artifacts.manifest_path.write_text(
         json.dumps(

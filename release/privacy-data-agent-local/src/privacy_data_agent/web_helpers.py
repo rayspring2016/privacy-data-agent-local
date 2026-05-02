@@ -10,6 +10,7 @@ from privacy_data_agent.anonymizer import anonymize_dataframe
 from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_table
 from privacy_data_agent.models import MappingFile
 from privacy_data_agent.restorer import restore_bytes, restore_report
+from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
 
 
 def read_uploaded_table(filename: str, content: bytes) -> pd.DataFrame:
@@ -68,26 +69,36 @@ def anonymize_upload(
     seed_mapping_filename: str | None = None,
     seed_mapping_content: bytes | None = None,
 ) -> dict[str, bytes | str | int]:
-    df = read_uploaded_table(filename, content)
     seed: MappingFile | None = None
     if seed_mapping_filename and seed_mapping_content:
         seed_path = _write_temp_mapping(seed_mapping_filename, seed_mapping_content)
         seed = load_local_mapping(seed_path)
-    result = anonymize_dataframe(df, seed_mapping=seed)
-    anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
-    anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
-    mapping_json = result.mapping.model_dump_json(indent=2)
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".xlsx":
+        workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed)
+        result_mapping = workbook_result.mapping
+        row_count = workbook_result.row_count
+        anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
+        anonymized_xlsx = workbook_result.workbook_bytes
+    else:
+        df = read_uploaded_table(filename, content)
+        result = anonymize_dataframe(df, seed_mapping=seed)
+        result_mapping = result.mapping
+        row_count = len(result.dataframe)
+        anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
+        anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
+    mapping_json = result_mapping.model_dump_json(indent=2)
     stem = Path(filename).stem
-    new_count = len(result.mapping.entries) - (len(seed.entries) if seed else 0)
+    new_count = len(result_mapping.entries) - (len(seed.entries) if seed else 0)
     return {
-        "row_count": len(result.dataframe),
-        "entity_count": len(result.mapping.entries),
+        "row_count": row_count,
+        "entity_count": len(result_mapping.entries),
         "new_entity_count": new_count,
         "stem": stem,
         "anonymized_csv": anonymized_csv,
         "anonymized_xlsx": anonymized_xlsx,
         "mapping_json": mapping_json,
-        "mapping_table_csv": mapping_to_table_csv_bytes(result.mapping),
+        "mapping_table_csv": mapping_to_table_csv_bytes(result_mapping),
         "zip_bundle": create_zip_bundle(stem, anonymized_xlsx, mapping_json),
     }
 

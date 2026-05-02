@@ -1,5 +1,5 @@
 #!/bin/zsh
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "========================================"
 echo "Privacy Data Agent - Mac 安装"
@@ -35,6 +35,6 @@ fi
 
 echo
 echo "安装完成。之后可双击："
-echo "03-launch-web-ui-mac.command"
+echo "mac/03-launch-web-ui-mac.command"
 echo
 read "unused?按回车退出..."
