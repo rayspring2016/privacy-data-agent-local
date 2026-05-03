@@ -1,0 +1,239 @@
+/* ============================================================
+   Privacy Data Agent — Design Tokens
+   Source: Streamlit default theme + web_app.py overrides
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   BASE COLOR PALETTE
+   ---------------------------------------------------------- */
+:root {
+  /* Backgrounds */
+  --color-bg-page:        #ffffff;
+  --color-bg-secondary:   #f0f2f6;
+  --color-bg-tertiary:    #fafafa;
+  --color-bg-code:        #f8f9fa;
+
+  /* Primary accent — Streamlit red-orange */
+  --color-primary:        #ff4b4b;
+  --color-primary-hover:  #e03e3e;
+  --color-primary-active: #c73434;
+  --color-primary-subtle: #fff0f0;
+
+  /* Neutrals */
+  --color-neutral-900:    #1f1f1f;
+  --color-neutral-800:    #262730;
+  --color-neutral-700:    #3d3d3d;
+  --color-neutral-600:    #555555;
+  --color-neutral-500:    #6b6b6b;
+  --color-neutral-400:    #808495;
+  --color-neutral-300:    #bbbccc;
+  --color-neutral-200:    #d6d9e4;
+  --color-neutral-100:    #e6e9ef;
+  --color-neutral-50:     #f0f2f6;
+
+  /* Status — Success */
+  --color-success:        #21c354;
+  --color-success-bg:     #e6f9ed;
+  --color-success-border: #a3e8b5;
+  --color-success-text:   #0d6b2c;
+
+  /* Status — Warning */
+  --color-warning:        #ffa421;
+  --color-warning-bg:     #fff8e8;
+  --color-warning-border: #ffd88a;
+  --color-warning-text:   #7a4f00;
+
+  /* Status — Error */
+  --color-error:          #ff4b4b;
+  --color-error-bg:       #fde8e8;
+  --color-error-border:   #f9b6b6;
+  --color-error-text:     #8b1a1a;
+
+  /* Status — Info */
+  --color-info:           #1c83e1;
+  --color-info-bg:        #e8f2fd;
+  --color-info-border:    #9ecbf5;
+  --color-info-text:      #0a4a85;
+
+  /* Borders */
+  --color-border:         #e6e9ef;
+  --color-border-strong:  #d0d3e0;
+  --color-border-focus:   #ff4b4b;
+
+  /* Upload area */
+  --color-upload-border:  #d0d3e0;
+  --color-upload-bg:      #fafbfc;
+  --color-upload-hover-border: #ff4b4b;
+  --color-upload-hover-bg: #fff5f5;
+}
+
+/* ----------------------------------------------------------
+   SEMANTIC COLOR ALIASES
+   ---------------------------------------------------------- */
+:root {
+  --fg1:            var(--color-neutral-900);    /* primary text */
+  --fg2:            var(--color-neutral-500);    /* secondary text / captions */
+  --fg3:            var(--color-neutral-400);    /* placeholder / hint text */
+  --fg-inverse:     #ffffff;                     /* text on dark/primary bg */
+
+  --bg-page:        var(--color-bg-page);
+  --bg-surface:     var(--color-bg-secondary);
+  --bg-elevated:    #ffffff;                     /* card / elevated surface */
+  --bg-code:        var(--color-bg-code);
+
+  --accent:         var(--color-primary);
+  --accent-hover:   var(--color-primary-hover);
+  --border:         var(--color-border);
+  --border-strong:  var(--color-border-strong);
+  --focus-ring:     var(--color-border-focus);
+}
+
+/* ----------------------------------------------------------
+   TYPOGRAPHY — SCALE
+   Based on Streamlit defaults + web_app.py mobile overrides
+   ---------------------------------------------------------- */
+:root {
+  /* Font families */
+  --font-sans:    "Source Sans Pro", "PingFang SC", "Microsoft YaHei",
+                  "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont,
+                  "Segoe UI", sans-serif;
+  --font-mono:    "Source Code Pro", "SFMono-Regular", "Consolas",
+                  "Liberation Mono", "Courier New", monospace;
+
+  /* Scale */
+  --text-xs:      0.75rem;    /* 12px — fine print */
+  --text-sm:      0.8125rem;  /* 13px — captions */
+  --text-base:    1rem;       /* 16px — body */
+  --text-md:      1.125rem;   /* 18px — subheadings */
+  --text-lg:      1.25rem;    /* 20px — section headers */
+  --text-xl:      1.5rem;     /* 24px — h2 */
+  --text-2xl:     1.875rem;   /* 30px — h1 desktop */
+  --text-3xl:     2.25rem;    /* 36px — h1 / title */
+
+  /* Weights */
+  --weight-regular:   400;
+  --weight-semibold:  600;
+  --weight-bold:      700;
+
+  /* Line heights */
+  --leading-tight:  1.15;
+  --leading-snug:   1.3;
+  --leading-normal: 1.5;
+  --leading-loose:  1.7;
+
+  /* Letter spacing */
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:  0.03em;
+}
+
+/* ----------------------------------------------------------
+   SEMANTIC TYPE STYLES
+   ---------------------------------------------------------- */
+
+/* Headings */
+.h1, h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--fg1);
+  letter-spacing: var(--tracking-tight);
+}
+
+/* Mobile h1 override (from web_app.py) */
+@media (max-width: 480px) {
+  .h1, h1 {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    word-break: keep-all;
+  }
+}
+
+.h2, h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--fg1);
+}
+
+.h3, h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--fg1);
+}
+
+/* Body */
+p, .body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--fg1);
+}
+
+/* Caption */
+.caption, small {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--fg2);
+}
+
+/* Code / tokens */
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--bg-code);
+  color: var(--fg1);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+/* ----------------------------------------------------------
+   SPACING SCALE (Streamlit 8px base grid)
+   ---------------------------------------------------------- */
+:root {
+  --space-1:   0.25rem;   /* 4px */
+  --space-2:   0.5rem;    /* 8px */
+  --space-3:   0.75rem;   /* 12px */
+  --space-4:   1rem;      /* 16px */
+  --space-5:   1.25rem;   /* 20px */
+  --space-6:   1.5rem;    /* 24px */
+  --space-8:   2rem;      /* 32px */
+  --space-10:  2.5rem;    /* 40px */
+  --space-12:  3rem;      /* 48px */
+  --space-16:  4rem;      /* 64px — block-container padding-top */
+}
+
+/* ----------------------------------------------------------
+   BORDER RADIUS
+   ---------------------------------------------------------- */
+:root {
+  --radius-sm:   4px;    /* inputs, alerts, expanders */
+  --radius-md:   8px;    /* buttons, cards */
+  --radius-lg:   12px;   /* larger surfaces */
+  --radius-full: 9999px; /* pills (not used in this product) */
+}
+
+/* ----------------------------------------------------------
+   SHADOW SYSTEM
+   ---------------------------------------------------------- */
+:root {
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg:  0 4px 16px rgba(0, 0, 0, 0.10);
+}
+
+/* ----------------------------------------------------------
+   LAYOUT
+   ---------------------------------------------------------- */
+:root {
+  --container-max-width: 730px;
+  --container-padding-top: var(--space-16);
+  --container-padding-x: var(--space-4);
+}

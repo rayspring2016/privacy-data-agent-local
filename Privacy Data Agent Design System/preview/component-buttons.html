@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 6px; }
+
+  /* Primary button */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; font-family: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; padding: 0.45rem 1rem; transition: background 0.12s; }
+  .btn-primary { background: #ff4b4b; color: #fff; width: 100%; }
+  .btn-primary:hover { background: #e03e3e; }
+  .btn-primary:active { background: #c73434; }
+  .btn-secondary { background: #f0f2f6; color: #262730; border: 1px solid #e6e9ef; }
+  .btn-secondary:hover { background: #e6e9ef; }
+  .btn-disabled { background: #e6e9ef; color: #bbbccc; cursor: not-allowed; }
+  .btn-full { width: 100%; }
+
+  .demo-block { background: #fafafa; border: 1px solid #e6e9ef; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+  .demo-label { font-size: 10px; color: #bbbccc; font-family: monospace; margin-top: 8px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Primary — Full Width (download CTA)</div>
+<div class="demo-block">
+  <button class="btn btn-primary">⬇️ 一键打包下载（推荐）</button>
+  <div class="demo-label">type="primary" use_container_width=True</div>
+</div>
+
+<div class="section-title">Primary — Download Restore</div>
+<div class="demo-block">
+  <button class="btn btn-primary">下载反脱敏报告</button>
+  <div class="demo-label">type="primary" use_container_width=True</div>
+</div>
+
+<div class="section-title">Secondary — Individual file downloads</div>
+<div class="demo-block">
+  <div class="two-col">
+    <button class="btn btn-secondary">下载脱敏 Excel</button>
+    <button class="btn btn-secondary">下载脱敏 CSV</button>
+    <button class="btn btn-secondary">下载匹配文件 JSON</button>
+    <button class="btn btn-secondary">下载匹配表 CSV</button>
+  </div>
+  <div class="demo-label">default (secondary) use_container_width=True · inside st.expander</div>
+</div>
+
+<div class="section-title">States</div>
+<div class="demo-block">
+  <div class="row">
+    <button class="btn btn-primary" style="width:auto;">Default</button>
+    <button class="btn btn-primary" style="width:auto; background:#e03e3e;">Hover</button>
+    <button class="btn btn-primary" style="width:auto; background:#c73434;">Active</button>
+    <button class="btn btn-disabled" style="width:auto;">Disabled</button>
+  </div>
+  <div class="demo-label">primary · default · hover · active · disabled</div>
+</div>
+
+</body>
+</html>

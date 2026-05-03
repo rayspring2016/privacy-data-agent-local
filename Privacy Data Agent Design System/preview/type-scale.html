@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid #e6e9ef; }
+  .meta { width: 130px; flex-shrink: 0; }
+  .meta-name { font-size: 10px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; }
+  .meta-size { font-size: 10px; color: #bbbccc; font-family: monospace; margin-top: 2px; }
+  .specimen { color: #1f1f1f; }
+  .caption-text { font-size: 13px; color: #6b6b6b; line-height: 1.5; }
+  .mono-text { font-family: "Source Code Pro", "Courier New", monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">Title / H1</div><div class="meta-size">2.25rem · 700 · −0.01em</div></div>
+  <div class="specimen" style="font-size:2.25rem; font-weight:700; line-height:1.15; letter-spacing:-0.01em;">本地数据脱敏工具</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">H2 / Subheader</div><div class="meta-size">1.5rem · 600</div></div>
+  <div class="specimen" style="font-size:1.5rem; font-weight:600; line-height:1.3;">上传 Excel 或 CSV</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">H3 / Section</div><div class="meta-size">1.25rem · 600</div></div>
+  <div class="specimen" style="font-size:1.25rem; font-weight:600; line-height:1.3;">报告反脱敏</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">Body</div><div class="meta-size">1rem · 400 · 1.5</div></div>
+  <div class="specimen" style="font-size:1rem; font-weight:400; line-height:1.5;">文件只在本机处理，不会上传到服务器，也不会调用大模型。</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">Caption</div><div class="meta-size">0.8125rem · 400</div></div>
+  <div class="caption-text">ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">Monospace</div><div class="meta-size">0.8125rem · mono</div></div>
+  <div class="mono-text">PDA_A1B2C3D4E5F60708</div>
+</div>
+
+<div class="row">
+  <div class="meta"><div class="meta-name">Label (UI)</div><div class="meta-size">0.875rem · 600</div></div>
+  <div class="specimen" style="font-size:0.875rem; font-weight:600; color:#262730;">选择需要脱敏的数据文件</div>
+</div>
+
+</body>
+</html>

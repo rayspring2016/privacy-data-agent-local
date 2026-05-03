@@ -7,20 +7,52 @@ from pathlib import Path
 import pandas as pd
 
 from privacy_data_agent.anonymizer import anonymize_dataframe
+from privacy_data_agent.detectors import detect_header_row
 from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_table
 from privacy_data_agent.models import MappingFile
 from privacy_data_agent.restorer import restore_bytes, restore_report
 from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
 
 
-def read_uploaded_table(filename: str, content: bytes) -> pd.DataFrame:
+def read_uploaded_table(filename: str, content: bytes, header_row: int | None = None) -> pd.DataFrame:
     suffix = Path(filename).suffix.lower()
     buffer = BytesIO(content)
     if suffix == ".csv":
-        return pd.read_csv(buffer)
+        return _read_uploaded_csv(buffer, header_row)
     if suffix == ".xlsx":
-        return pd.read_excel(buffer)
+        return _read_uploaded_excel(buffer, header_row)
     raise ValueError("Only .csv and .xlsx files are supported.")
+
+
+def _read_uploaded_csv(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
+    if header_row is None:
+        header_row = _detect_csv_header_row(buffer)
+        buffer.seek(0)
+    return pd.read_csv(buffer, header=max(0, header_row - 1))
+
+
+def _detect_csv_header_row(buffer: BytesIO) -> int:
+    lines = []
+    for _ in range(3):
+        line = buffer.readline()
+        if line:
+            lines.append(line.decode("utf-8-sig").strip())
+    if not lines:
+        return 1
+    raw_rows = [line.split(",") for line in lines]
+    return detect_header_row(raw_rows)
+
+
+def _read_uploaded_excel(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
+    if header_row is None:
+        raw = pd.read_excel(buffer, header=None, nrows=3, engine="openpyxl")
+        buffer.seek(0)
+        raw_rows = [
+            [str(c) if pd.notna(c) else "" for c in raw.iloc[i].tolist()]
+            for i in range(min(3, len(raw)))
+        ]
+        header_row = detect_header_row(raw_rows)
+    return pd.read_excel(buffer, header=max(0, header_row - 1))
 
 
 def dataframe_to_xlsx_bytes(df: pd.DataFrame) -> bytes:
@@ -68,6 +100,7 @@ def anonymize_upload(
     content: bytes,
     seed_mapping_filename: str | None = None,
     seed_mapping_content: bytes | None = None,
+    header_row: int | None = None,
 ) -> dict[str, bytes | str | int]:
     seed: MappingFile | None = None
     if seed_mapping_filename and seed_mapping_content:
@@ -75,13 +108,13 @@ def anonymize_upload(
         seed = load_local_mapping(seed_path)
     suffix = Path(filename).suffix.lower()
     if suffix == ".xlsx":
-        workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed)
+        workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed, header_row=header_row)
         result_mapping = workbook_result.mapping
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
     else:
-        df = read_uploaded_table(filename, content)
+        df = read_uploaded_table(filename, content, header_row=header_row)
         result = anonymize_dataframe(df, seed_mapping=seed)
         result_mapping = result.mapping
         row_count = len(result.dataframe)

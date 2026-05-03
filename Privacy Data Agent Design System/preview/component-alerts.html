@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .demo-block { background: #fafafa; border: 1px solid #e6e9ef; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+  .demo-label { font-size: 10px; color: #bbbccc; font-family: monospace; margin-top: 8px; }
+  .alert { border-radius: 6px; padding: 10px 14px; border-left: 4px solid; font-size: 0.875rem; line-height: 1.5; }
+  .alert + .alert { margin-top: 8px; }
+  .success { background:#e6f9ed; border-color:#21c354; color:#0d6b2c; }
+  .warning { background:#fff8e8; border-color:#ffa421; color:#7a4f00; }
+  .error   { background:#fde8e8; border-color:#ff4b4b; color:#8b1a1a; }
+  .info    { background:#e8f2fd; border-color:#1c83e1; color:#0a4a85; }
+  .alert-icon { font-size: 14px; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="section-title">st.success — anonymize complete</div>
+<div class="demo-block">
+  <div class="alert success"><span class="alert-icon">✓</span>脱敏完成：42 行，生成 18 个匹配项。</div>
+  <div class="alert-copy" style="margin-top:4px;"></div>
+  <div class="demo-label">st.success() · initial run (no seed)</div>
+  <div class="alert success" style="margin-top:8px;"><span class="alert-icon">✓</span>脱敏完成：38 行，新增 11 个实体，累计 29 个匹配项。</div>
+  <div class="demo-label">st.success() · batch append with seed mapping</div>
+</div>
+
+<div class="section-title">st.success — restore complete</div>
+<div class="demo-block">
+  <div class="alert success"><span class="alert-icon">✓</span>报告恢复完成。</div>
+  <div class="demo-label">st.success() · restore tab</div>
+</div>
+
+<div class="section-title">st.warning — security reminder</div>
+<div class="demo-block">
+  <div class="alert warning"><span class="alert-icon">⚠</span>匹配文件和匹配表包含原始敏感信息，只能保存在本地。</div>
+  <div class="demo-label">st.warning() · shown after download buttons</div>
+</div>
+
+<div class="section-title">st.error — processing failure</div>
+<div class="demo-block">
+  <div class="alert error"><span class="alert-icon">✕</span>处理失败：不支持的文件格式，请上传 .csv 或 .xlsx 文件。</div>
+  <div class="demo-label">st.error(f"处理失败：{exc}")</div>
+</div>
+
+<div class="section-title">st.info — empty / waiting state</div>
+<div class="demo-block">
+  <div class="alert info"><span class="alert-icon">ℹ</span>请同时上传报告文件和匹配文件。</div>
+  <div class="demo-label">st.info() · restore tab · both files not yet uploaded</div>
+</div>
+
+</body>
+</html>

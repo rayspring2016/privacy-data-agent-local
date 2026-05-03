@@ -83,3 +83,74 @@ def test_anonymize_upload_preserves_xlsx_sheets_hidden_state_and_styles():
     assert output["员工"].column_dimensions["A"].width == 28
     assert "张三" in result["mapping_json"]
     assert "上海春雷科技有限公司" in result["mapping_json"]
+
+
+def test_anonymize_upload_csv_with_title_row():
+    content = (
+        "2024年度员工信息统计表\r\n"
+        "员工姓名,身份证号,部门,客户名称,手机号,邮箱,销售额,备注\r\n"
+        "张三,11010119900307001X,华东销售一部,上海春雷科技有限公司,13800138000,zhangsan@example.com,120000,客户续费稳定\r\n"
+    ).encode("utf-8")
+
+    result = anonymize_upload("hr_with_title.csv", content)
+
+    assert result["row_count"] == 1
+    assert b"PDA_" in result["anonymized_csv"]
+    assert "2024年度" not in result["anonymized_csv"].decode("utf-8")
+    assert "张三" in result["mapping_json"]
+
+
+def test_anonymize_upload_csv_explicit_header_row_2():
+    content = (
+        "2024年度员工信息统计表\r\n"
+        "员工姓名,身份证号,部门,客户名称\r\n"
+        "张三,11010119900307001X,华东销售一部,上海春雷科技有限公司\r\n"
+    ).encode("utf-8")
+
+    result = anonymize_upload("hr_with_title.csv", content, header_row=2)
+
+    assert result["row_count"] == 1
+    assert b"PDA_" in result["anonymized_csv"]
+    assert "张三" in result["mapping_json"]
+
+
+def test_anonymize_upload_xlsx_with_title_row():
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "2024年度员工信息统计表"
+    ws.merge_cells("A1:D1")
+    ws["A2"] = "员工姓名"
+    ws["B2"] = "部门"
+    ws["C2"] = "客户名称"
+    ws["D2"] = "手机号"
+    ws["A3"] = "张三"
+    ws["B3"] = "销售一部"
+    ws["C3"] = "上海春雷科技有限公司"
+    ws["D3"] = "13800138000"
+    buf = BytesIO()
+    wb.save(buf)
+
+    result = anonymize_upload("hr_with_title.xlsx", buf.getvalue())
+
+    output = load_workbook(BytesIO(result["anonymized_xlsx"]))
+    assert output.active["A3"].value.startswith("PDA_")
+    assert "张三" in result["mapping_json"]
+
+
+def test_anonymize_upload_xlsx_explicit_header_row_2():
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "2024年度员工信息统计表"
+    ws["A2"] = "员工姓名"
+    ws["B2"] = "部门"
+    ws["A3"] = "张三"
+    ws["B3"] = "销售一部"
+    buf = BytesIO()
+    wb.save(buf)
+
+    result = anonymize_upload("hr_with_title.xlsx", buf.getvalue(), header_row=2)
+
+    output = load_workbook(BytesIO(result["anonymized_xlsx"]))
+    assert output.active["A3"].value.startswith("PDA_")
+    assert output.active["A2"].value == "员工姓名"
+    assert "张三" in result["mapping_json"]

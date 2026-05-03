@@ -1,4 +1,4 @@
-from privacy_data_agent.detectors import detect_cell_entity_type, detect_column_entity_type
+from privacy_data_agent.detectors import detect_cell_entity_type, detect_column_entity_type, detect_header_row
 from privacy_data_agent.models import EntityType
 
 
@@ -30,3 +30,17 @@ def test_detects_cell_patterns_without_column_hint():
     assert detect_cell_entity_type("13800138000") == EntityType.PHONE
     assert detect_cell_entity_type("zhangsan@example.com") == EntityType.EMAIL
     assert detect_cell_entity_type("120000") is None
+
+
+def test_detect_header_row_standard_table():
+    rows = [["员工姓名", "部门", "客户名称"], ["张三", "销售一部", "上海科技"]]
+    assert detect_header_row(rows) == 1
+
+
+def test_detect_header_row_title_first_row():
+    rows = [["2024年度员工信息表"], ["员工姓名", "部门", "客户名称"], ["张三", "销售一部", "上海科技"]]
+    assert detect_header_row(rows) == 2
+
+
+def test_detect_header_row_fewer_than_two_rows():
+    assert detect_header_row([["员工姓名"]]) == 1

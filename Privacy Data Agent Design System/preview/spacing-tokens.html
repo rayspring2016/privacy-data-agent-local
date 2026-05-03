@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .bar { background: #ff4b4b; border-radius: 2px; height: 20px; }
+  .label { font-size: 11px; font-family: monospace; color: #6b6b6b; width: 80px; flex-shrink: 0; }
+  .val { font-size: 11px; color: #262730; }
+  .space-demo { background: #f0f2f6; height: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  .token-box { border-radius: 4px; background: #e6e9ef; display: flex; align-items: center; justify-content: center; }
+  .token-label { font-size: 10px; color: #6b6b6b; font-family: monospace; }
+  .radius-row { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .radius-box { width: 48px; height: 32px; background: #ff4b4b; display: flex; align-items: center; justify-content: center; }
+  .radius-lbl { font-size: 10px; color: #fff; font-family: monospace; font-weight: 600; }
+  .shadow-row { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
+  .shadow-box { width: 60px; height: 36px; background: #fff; border: 1px solid #e6e9ef; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+  .shadow-lbl { font-size: 9px; color: #808495; font-family: monospace; text-align: center; margin-top: 4px; }
+  .shadow-wrap { text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Spacing Scale (8px base)</div>
+<div class="row"><span class="label">--space-1</span><div class="bar" style="width:4px;"></div><span class="val">4px</span></div>
+<div class="row"><span class="label">--space-2</span><div class="bar" style="width:8px;"></div><span class="val">8px</span></div>
+<div class="row"><span class="label">--space-3</span><div class="bar" style="width:12px;"></div><span class="val">12px</span></div>
+<div class="row"><span class="label">--space-4</span><div class="bar" style="width:16px;"></div><span class="val">16px</span></div>
+<div class="row"><span class="label">--space-5</span><div class="bar" style="width:20px;"></div><span class="val">20px</span></div>
+<div class="row"><span class="label">--space-6</span><div class="bar" style="width:24px;"></div><span class="val">24px</span></div>
+<div class="row"><span class="label">--space-8</span><div class="bar" style="width:32px;"></div><span class="val">32px</span></div>
+<div class="row"><span class="label">--space-10</span><div class="bar" style="width:40px;"></div><span class="val">40px</span></div>
+<div class="row"><span class="label">--space-12</span><div class="bar" style="width:48px;"></div><span class="val">48px</span></div>
+<div class="row"><span class="label">--space-16</span><div class="bar" style="width:64px;"></div><span class="val">64px · container top</span></div>
+
+<div class="section-title">Border Radius</div>
+<div class="radius-row">
+  <div style="text-align:center;"><div class="radius-box" style="border-radius:4px;"><span class="radius-lbl">4px</span></div><div style="font-size:10px;color:#808495;margin-top:3px;">sm · inputs</div></div>
+  <div style="text-align:center;"><div class="radius-box" style="border-radius:8px;"><span class="radius-lbl">8px</span></div><div style="font-size:10px;color:#808495;margin-top:3px;">md · buttons</div></div>
+  <div style="text-align:center;"><div class="radius-box" style="border-radius:12px;"><span class="radius-lbl">12px</span></div><div style="font-size:10px;color:#808495;margin-top:3px;">lg · surfaces</div></div>
+</div>
+
+<div class="section-title">Shadows</div>
+<div class="shadow-row">
+  <div class="shadow-wrap"><div class="shadow-box" style="box-shadow:0 1px 2px rgba(0,0,0,0.06);"></div><div class="shadow-lbl">sm<br>0 1px 2px</div></div>
+  <div class="shadow-wrap"><div class="shadow-box" style="box-shadow:0 2px 8px rgba(0,0,0,0.08);"></div><div class="shadow-lbl">md<br>0 2px 8px</div></div>
+  <div class="shadow-wrap"><div class="shadow-box" style="box-shadow:0 4px 16px rgba(0,0,0,0.10);"></div><div class="shadow-lbl">lg<br>0 4px 16px</div></div>
+</div>
+
+<div class="section-title">Layout</div>
+<div style="font-size:11px; color:#6b6b6b; font-family:monospace; line-height:1.8;">
+  --container-max-width: 730px<br>
+  --container-padding-top: 64px (4rem)<br>
+  --container-padding-x: 16px (1rem)<br>
+  layout: centered, single column
+</div>
+
+</body>
+</html>
