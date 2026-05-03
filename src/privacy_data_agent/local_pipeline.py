@@ -26,7 +26,7 @@ class LocalRestoreArtifacts(BaseModel):
     restored_report_path: Path
 
 
-def anonymize_file(input_path: str | Path, output_dir: str | Path) -> LocalAnonymizeArtifacts:
+def anonymize_file(input_path: str | Path, output_dir: str | Path, header_row: int | None = None) -> LocalAnonymizeArtifacts:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     run_id = uuid4().hex[:12]
@@ -42,10 +42,10 @@ def anonymize_file(input_path: str | Path, output_dir: str | Path) -> LocalAnony
     )
 
     if input_file.suffix.lower() == ".xlsx":
-        anonymized_workbook = anonymize_xlsx_file(input_file, artifacts.anonymized_data_path)
+        anonymized_workbook = anonymize_xlsx_file(input_file, artifacts.anonymized_data_path, header_row=header_row)
         mapping = anonymized_workbook.mapping
     else:
-        source_df = read_input_table(input_file)
+        source_df = read_input_table(input_file, header_row=header_row)
         anonymized = anonymize_dataframe(source_df)
         anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
         mapping = anonymized.mapping

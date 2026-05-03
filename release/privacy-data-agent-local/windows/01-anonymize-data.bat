@@ -59,9 +59,17 @@ echo Press Enter to use the default, or type another output directory:
 set /p "CUSTOM_OUTPUT=> "
 if not "%CUSTOM_OUTPUT%"=="" set "OUTPUT_DIR=%CUSTOM_OUTPUT%"
 
+set "HEADER_ROW_ARG="
+echo.
+echo Table header row (press Enter for auto-detect):
+echo   1 = First row is header (standard table)
+echo   2 = Second row is header (first row is title)
+set /p "HEADER_ROW=> "
+if not "%HEADER_ROW%"=="" set "HEADER_ROW_ARG=--header-row %HEADER_ROW%"
+
 echo.
 echo Anonymizing data, please wait ...
-".venv\Scripts\privacy-data-agent.exe" anonymize "%INPUT_FILE%" --output-dir "%OUTPUT_DIR%"
+".venv\Scripts\privacy-data-agent.exe" anonymize "%INPUT_FILE%" --output-dir "%OUTPUT_DIR%" %HEADER_ROW_ARG%
 if errorlevel 1 (
   echo.
   echo Anonymize failed.
