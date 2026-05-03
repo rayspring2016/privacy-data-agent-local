@@ -21,8 +21,9 @@ def _noop() -> None:
 def anonymize(
     input_path: Path = typer.Argument(..., exists=True, readable=True),
     output_dir: Path = typer.Option(Path("runs/local"), "--output-dir", "-o"),
+    header_row: int | None = typer.Option(None, "--header-row", "-hr", help="1-based header row number (default: auto-detect)"),
 ) -> None:
-    artifacts = anonymize_file(input_path=input_path, output_dir=output_dir)
+    artifacts = anonymize_file(input_path=input_path, output_dir=output_dir, header_row=header_row)
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")

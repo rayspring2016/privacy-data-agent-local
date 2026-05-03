@@ -35,7 +35,7 @@ def anonymize_xlsx_bytes(
         header_by_column = _header_by_column(worksheet, header_row=resolved_header_row)
 
         for row in worksheet.iter_rows():
-            if header_by_column and row and row[0].row == resolved_header_row:
+            if header_by_column and row and row[0].row <= resolved_header_row:
                 continue
             if any(cell.value is not None for cell in row):
                 row_count += 1
@@ -98,7 +98,7 @@ def _workbook_preview_dataframe(workbook_bytes: bytes, header_row: int = 1) -> p
     for worksheet in workbook.worksheets:
         header_by_column = _header_by_column(worksheet, header_row=header_row)
         for index, row in enumerate(worksheet.iter_rows(values_only=True), start=1):
-            if index == header_row and header_by_column:
+            if header_by_column and index <= header_row:
                 continue
             if not any(value is not None for value in row):
                 continue

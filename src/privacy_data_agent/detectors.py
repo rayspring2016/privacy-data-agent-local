@@ -125,7 +125,7 @@ def detect_header_row(raw_rows: list[list[str]]) -> int:
         return 2
     row1_hits = sum(1 for c in row1 if detect_column_entity_type(c))
     row2_hits = sum(1 for c in row2 if detect_column_entity_type(c))
-    if row1_hits <= 1 and row2_hits >= 3:
+    if row1_hits <= 1 and row2_hits >= 2:
         return 2
     return 1
 

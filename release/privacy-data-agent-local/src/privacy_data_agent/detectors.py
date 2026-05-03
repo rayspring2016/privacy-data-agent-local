@@ -108,6 +108,28 @@ def _looks_like_person_column(normalized_column_name: str) -> bool:
     return normalized_column_name.endswith("人")
 
 
+def detect_header_row(raw_rows: list[list[str]]) -> int:
+    """
+    检测表头所在行，返回 1-based 行号。
+    启发式：
+    1. 第1行仅1个非空单元格（合并标题）→ 表头在第2行
+    2. 第1行匹配的实体类型 <= 1 且第2行 >= 3 → 表头在第2行
+    3. 其他 → 表头在第1行（向后兼容）
+    """
+    if len(raw_rows) < 2:
+        return 1
+    row1 = [str(c) if c is not None else "" for c in raw_rows[0]]
+    row2 = [str(c) if c is not None else "" for c in raw_rows[1]]
+    row1_nonempty = [c for c in row1 if c.strip()]
+    if len(row1_nonempty) == 1 and len([c for c in row2 if c.strip()]) > 1:
+        return 2
+    row1_hits = sum(1 for c in row1 if detect_column_entity_type(c))
+    row2_hits = sum(1 for c in row2 if detect_column_entity_type(c))
+    if row1_hits <= 1 and row2_hits >= 2:
+        return 2
+    return 1
+
+
 def detect_cell_entity_type(value: object) -> EntityType | None:
     text = "" if value is None else str(value).strip()
     if not text:

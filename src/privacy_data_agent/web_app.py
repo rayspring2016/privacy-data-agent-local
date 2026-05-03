@@ -6,10 +6,10 @@ from privacy_data_agent.web_helpers import anonymize_upload, restore_report_uplo
 
 _DARK_THEME_CSS = """<style>
 :root {
-    --pda-primary: #cb7b7b;
-    --pda-primary-hover: #d48888;
-    --pda-primary-active: #b86e6e;
-    --pda-primary-subtle: rgba(203,123,123,0.06);
+    --pda-primary: #5aa080;
+    --pda-primary-hover: #6db89c;
+    --pda-primary-active: #4a9070;
+    --pda-primary-subtle: rgba(109,184,156,0.08);
     --pda-text: #e4e4e7;
     --pda-text-secondary: #7e7e86;
     --pda-text-muted: #545459;
@@ -26,9 +26,9 @@ _DARK_THEME_CSS = """<style>
     --pda-warning-bg: rgba(245,158,11,0.06);
     --pda-warning-border: rgba(245,158,11,0.12);
     --pda-warning-text: #fbbf24;
-    --pda-error-bg: rgba(203,123,123,0.06);
-    --pda-error-border: rgba(203,123,123,0.12);
-    --pda-error-text: #e07878;
+    --pda-error-bg: rgba(239,68,68,0.06);
+    --pda-error-border: rgba(239,68,68,0.12);
+    --pda-error-text: #f87171;
     --pda-info-bg: rgba(96,165,250,0.06);
     --pda-info-border: rgba(96,165,250,0.12);
     --pda-info-text: #93c5fd;
@@ -37,20 +37,21 @@ _DARK_THEME_CSS = """<style>
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(195,105,105,0.025) 0%, transparent 60%),
+        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(109,184,156,0.06) 0%, transparent 60%),
         #111318 !important;
 }
 code { background: #13151e !important; }
 .stButton > button:not([kind="primary"]):hover,
-.stDownloadButton > button:not([kind="primary"]):hover { background: #1c1f2a !important; }
+.stDownloadButton > button:not([kind="primary"]):hover,
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #1c1f2a !important; }
 </style>"""
 
 _LIGHT_THEME_CSS = """<style>
 :root {
-    --pda-primary: #c56a6a;
-    --pda-primary-hover: #d47a7a;
-    --pda-primary-active: #b65a5a;
-    --pda-primary-subtle: #fef5f5;
+    --pda-primary: #5aa080;
+    --pda-primary-hover: #6db89c;
+    --pda-primary-active: #4a9070;
+    --pda-primary-subtle: #e8f5f0;
     --pda-text: #1a1a1d;
     --pda-text-secondary: #5c5c63;
     --pda-text-muted: #9999a0;
@@ -67,10 +68,10 @@ _LIGHT_THEME_CSS = """<style>
     --pda-warning-bg: #fffdf5;
     --pda-warning-border: #fde68a;
     --pda-warning-text: #92400e;
-    --pda-error-bg: #fef5f5;
-    --pda-error-border: #fccccc;
-    --pda-error-text: #8b1a1a;
-    --pda-info-bg: #f5f8fe;
+    --pda-error-bg: #fef2f2;
+    --pda-error-border: #fecaca;
+    --pda-error-text: #991b1b;
+    --pda-info-bg: #f0f5fe;
     --pda-info-border: #bfdbfe;
     --pda-info-text: #1d4ed8;
     --pda-font: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -78,13 +79,14 @@ _LIGHT_THEME_CSS = """<style>
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 900px 400px at 60% -10%, rgba(195,105,105,0.04) 0%, transparent 60%),
-        radial-gradient(ellipse 600px 300px at 10% 80%, rgba(195,105,105,0.02) 0%, transparent 50%),
+        radial-gradient(ellipse 900px 400px at 60% -10%, rgba(90,160,128,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 600px 300px at 10% 80%, rgba(90,160,128,0.04) 0%, transparent 50%),
         #fafafc !important;
 }
 code { background: #f5f5f8 !important; }
 .stButton > button:not([kind="primary"]):hover,
-.stDownloadButton > button:not([kind="primary"]):hover { background: #f0f0f3 !important; }
+.stDownloadButton > button:not([kind="primary"]):hover,
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #f0f0f3 !important; }
 </style>"""
 
 
@@ -290,7 +292,8 @@ def main() -> None:
         }
 
         .stButton > button[kind="primary"],
-        .stDownloadButton > button[kind="primary"] {
+        .stDownloadButton > button[kind="primary"],
+        [data-testid="stBaseButton-primary"] {
             background: var(--pda-primary) !important;
             color: #ffffff !important;
             border: 1px solid var(--pda-primary) !important;
@@ -300,13 +303,16 @@ def main() -> None:
         }
 
         .stButton > button[kind="primary"]:hover,
-        .stDownloadButton > button[kind="primary"]:hover {
+        .stDownloadButton > button[kind="primary"]:hover,
+        [data-testid="stBaseButton-primary"]:hover {
             background: var(--pda-primary-hover) !important;
             border-color: var(--pda-primary-hover) !important;
+            color: #ffffff !important;
         }
 
         .stButton > button:not([kind="primary"]),
-        .stDownloadButton > button:not([kind="primary"]) {
+        .stDownloadButton > button:not([kind="primary"]),
+        [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]) {
             background: var(--pda-bg-secondary) !important;
             color: var(--pda-text) !important;
             border: 1px solid var(--pda-border-strong) !important;
@@ -315,7 +321,8 @@ def main() -> None:
         }
 
         .stButton > button:not([kind="primary"]):hover,
-        .stDownloadButton > button:not([kind="primary"]):hover {
+        .stDownloadButton > button:not([kind="primary"]):hover,
+        [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover {
             border-color: var(--pda-border-strong) !important;
         }
 
@@ -516,7 +523,7 @@ def main() -> None:
         }
 
         .stage.active .stage-label {
-            color: var(--pda-primary-active);
+            color: var(--pda-primary);
         }
 
         .stage.completed .stage-label {
@@ -572,47 +579,190 @@ def main() -> None:
         render_restore()
 
 
-def render_anonymize() -> None:
-    # 初始化session state
-    if "anonymize_file" not in st.session_state:
-        st.session_state.anonymize_file = None
-    if "seed_file" not in st.session_state:
-        st.session_state.seed_file = None
-    if "header_mode" not in st.session_state:
-        st.session_state.header_mode = "自动检测"
-    if "custom_header_row" not in st.session_state:
-        st.session_state.custom_header_row = 1
-    if "processing" not in st.session_state:
-        st.session_state.processing = False
-    
-    # 显示进度指示器
-    st.markdown(
-        """
-        <div class="stage-container">
-            <div class="stage """ + ("active" if not st.session_state.anonymize_file and not st.session_state.processing else "") + (" completed" if st.session_state.anonymize_file or st.session_state.processing else "") + """">
-                <div class="stage-dot">1</div>
-                <div class="stage-label">上传文件</div>
-            </div>
-            <div class="stage """ + ("active" if st.session_state.anonymize_file and not st.session_state.processing else "") + (" completed" if st.session_state.processing else "") + """">
-                <div class="stage-dot">2</div>
-                <div class="stage-label">配置选项</div>
-            </div>
-            <div class="stage """ + ("active" if st.session_state.processing else "") + """">
-                <div class="stage-dot">3</div>
-                <div class="stage-label">处理中</div>
-            </div>
-            <div class="stage """ + ("completed" if st.session_state.processing else "") + """">
-                <div class="stage-dot">✓</div>
-                <div class="stage-label">完成</div>
-            </div>
+def _stage_html(s1: str, s2: str, s3: str, s4: str, label3: str = "处理中") -> str:
+    return f"""
+    <div class="stage-container">
+        <div class="stage {s1}">
+            <div class="stage-dot">1</div>
+            <div class="stage-label">上传文件</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
+        <div class="stage {s2}">
+            <div class="stage-dot">2</div>
+            <div class="stage-label">配置选项</div>
+        </div>
+        <div class="stage {s3}">
+            <div class="stage-dot">3</div>
+            <div class="stage-label">{label3}</div>
+        </div>
+        <div class="stage {s4}">
+            <div class="stage-dot">✓</div>
+            <div class="stage-label">完成</div>
+        </div>
+    </div>
+    """
+
+
+def render_anonymize() -> None:
+    for key, default in [
+        ("anonymize_file", None),
+        ("seed_file", None),
+        ("header_mode", "自动检测"),
+        ("custom_header_row", 1),
+        ("processing", False),
+        ("anonymize_result", None),
+    ]:
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+    has_file = st.session_state.anonymize_file is not None
+    proc = st.session_state.processing
+    has_result = st.session_state.anonymize_result is not None
+
+    # Stage indicator — driven by result presence, not processing flag
+    s1 = "completed" if (has_file or proc or has_result) else "active"
+    s2 = "completed" if (proc or has_result) else ("active" if has_file else "")
+    s3 = "completed" if has_result else ("active" if proc else "")
+    s4 = "completed" if has_result else ""
+    st.markdown(_stage_html(s1, s2, s3, s4), unsafe_allow_html=True)
     st.divider()
-    
-    # 第一步：上传文件
+
+    # ── Processing phase ─────────────────────────────────────────────────────
+    if proc and has_file:
+        try:
+            with st.spinner("正在处理，请稍候..."):
+                _header_mode = st.session_state.get("header_mode", "自动检测")
+                if _header_mode == "自动检测":
+                    _header_row = None
+                elif _header_mode == "第一行":
+                    _header_row = 1
+                elif _header_mode == "第二行":
+                    _header_row = 2
+                else:
+                    _header_row = st.session_state.get("custom_header_row", 1)
+
+                result = anonymize_upload(
+                    st.session_state.anonymize_file.name,
+                    st.session_state.anonymize_file.getvalue(),
+                    seed_mapping_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
+                    seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
+                    header_row=_header_row,
+                )
+            st.session_state.anonymize_result = result
+            st.session_state.processing = False
+            st.rerun()
+        except Exception as exc:
+            st.session_state.processing = False
+            st.error(f"处理失败：{str(exc)}")
+            if st.button("重新尝试", use_container_width=True):
+                st.rerun()
+        return
+
+    # ── Result phase ──────────────────────────────────────────────────────────
+    if has_result:
+        result = st.session_state.anonymize_result
+        new_count = result["new_entity_count"]
+        total_count = result["entity_count"]
+
+        st.success(f"脱敏完成：{result['row_count']} 行，生成 {new_count} 个匹配项。")
+        st.markdown(
+            f"""
+            <div class="pda-stats">
+                <p class="pda-stats-title">处理统计</p>
+                <div class="pda-stats-grid">
+                    <div class="pda-stat">
+                        <p class="pda-stat-num">{result['row_count']}</p>
+                        <p class="pda-stat-label">数据行数</p>
+                    </div>
+                    <div class="pda-stat">
+                        <p class="pda-stat-num">{new_count}</p>
+                        <p class="pda-stat-label">新增实体</p>
+                    </div>
+                    <div class="pda-stat">
+                        <p class="pda-stat-num">{total_count}</p>
+                        <p class="pda-stat-label">总计实体</p>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.divider()
+        st.markdown("### 下载结果")
+
+        zip_name = f"{result['stem']}_脱敏包.zip"
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                "⬇️ 一键打包下载（推荐）",
+                data=result["zip_bundle"],
+                file_name=zip_name,
+                mime="application/zip",
+                use_container_width=True,
+                type="primary",
+                key="download_zip",
+            )
+        with col2:
+            st.button(
+                "处理其他文件",
+                use_container_width=True,
+                on_click=lambda: st.session_state.update({
+                    "processing": False,
+                    "anonymize_file": None,
+                    "seed_file": None,
+                    "header_mode": "自动检测",
+                    "custom_header_row": 1,
+                    "anonymize_result": None,
+                }),
+                key="process_another",
+            )
+        st.markdown(
+            """
+            <p class="pda-download-caption">
+                ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+        with st.expander("单独下载各文件", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button(
+                    "Excel 脱敏数据",
+                    data=result["anonymized_xlsx"],
+                    file_name="anonymized.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_xlsx",
+                )
+                st.download_button(
+                    "匹配文件 JSON",
+                    data=str(result["mapping_json"]).encode("utf-8"),
+                    file_name="mapping.local.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_json",
+                )
+            with col2:
+                st.download_button(
+                    "CSV 脱敏数据",
+                    data=result["anonymized_csv"],
+                    file_name="anonymized.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="download_csv",
+                )
+                st.download_button(
+                    "匹配表 CSV",
+                    data=result["mapping_table_csv"],
+                    file_name="mapping_table.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="download_mapping_csv",
+                )
+        st.warning("匹配文件和匹配表包含原始敏感信息，只能保存在本地。")
+        return
+
+    # ── Upload & config phase ─────────────────────────────────────────────────
     st.markdown("### 第一步：选择需要脱敏的文件")
     source_file = st.file_uploader(
         "选择 Excel 或 CSV 文件",
@@ -620,9 +770,8 @@ def render_anonymize() -> None:
         accept_multiple_files=False,
         key="source_file_uploader",
         label_visibility="collapsed",
-        disabled=st.session_state.processing,
     )
-    
+
     if source_file is not None:
         st.session_state.anonymize_file = source_file
         st.markdown(
@@ -634,18 +783,13 @@ def render_anonymize() -> None:
             """,
             unsafe_allow_html=True,
         )
-    
-    # 第二步：可选配置
-    if st.session_state.anonymize_file:
+
+    if source_file is not None:
         st.markdown("### 第二步：配置处理选项（可选）")
-        
+
         with st.expander("同一批次追加文件？上传已有匹配文件（可选）", expanded=False):
             st.markdown(
-                """
-                <p>
-                    如需在同一批次追加处理相同数据，上传已有的匹配文件。这样新出现的相同实体将沿用之前的匹配结果，保持一致性。
-                </p>
-                """,
+                "<p>如需在同一批次追加处理相同数据，上传已有的匹配文件。这样新出现的相同实体将沿用之前的匹配结果，保持一致性。</p>",
                 unsafe_allow_html=True,
             )
             seed_file = st.file_uploader(
@@ -654,18 +798,13 @@ def render_anonymize() -> None:
                 accept_multiple_files=False,
                 key="seed_file_uploader",
                 label_visibility="collapsed",
-                disabled=st.session_state.processing,
             )
             if seed_file is not None:
                 st.session_state.seed_file = seed_file
-        
+
         with st.expander("表格格式配置（可选）", expanded=False):
             st.markdown(
-                """
-                <p>
-                    如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。
-                </p>
-                """,
+                '<p>如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
                 unsafe_allow_html=True,
             )
             header_mode = st.radio(
@@ -677,193 +816,41 @@ def render_anonymize() -> None:
             )
             st.session_state.header_mode = header_mode
             if header_mode == "自定义行号":
-                custom_row = st.number_input("表头行号", min_value=1, value=st.session_state.custom_header_row, step=1, key="custom_header_row_input")
+                custom_row = st.number_input(
+                    "表头行号", min_value=1, value=st.session_state.custom_header_row, step=1, key="custom_header_row_input"
+                )
                 st.session_state.custom_header_row = custom_row
-        
+
         st.divider()
-        
-        # 开始处理按钮
+
         col1, col2 = st.columns([2, 1])
         with col1:
             start_btn = st.button(
                 "开始处理",
                 use_container_width=True,
                 type="primary",
-                disabled=st.session_state.processing,
                 key="start_anonymize_btn",
             )
         with col2:
             reset_btn = st.button(
                 "重新选择",
                 use_container_width=True,
-                disabled=st.session_state.processing,
                 key="reset_anonymize_btn",
             )
-        
+
         if reset_btn:
-            st.session_state.anonymize_file = None
-            st.session_state.seed_file = None
-            st.session_state.header_mode = "自动检测"
-            st.session_state.custom_header_row = 1
+            st.session_state.update({
+                "anonymize_file": None,
+                "seed_file": None,
+                "header_mode": "自动检测",
+                "custom_header_row": 1,
+                "anonymize_result": None,
+            })
             st.rerun()
-        
+
         if start_btn:
             st.session_state.processing = True
             st.rerun()
-    
-    # 处理流程
-    if st.session_state.processing and st.session_state.anonymize_file:
-        try:
-            # 显示处理进度
-            progress_container = st.container()
-            with progress_container:
-                st.markdown("### 处理进度")
-                progress_bar = st.progress(0)
-                
-                # 模拟处理过程
-                processing_steps = [
-                    ("读取文件中...", 0.25),
-                    ("检测敏感信息...", 0.50),
-                    ("执行匿名化...", 0.75),
-                    ("生成结果...", 1.0),
-                ]
-                
-                for step_name, progress in processing_steps:
-                    with st.spinner(step_name):
-                        progress_bar.progress(progress)
-            
-            # 计算 header_row
-            _header_mode = st.session_state.get("header_mode", "自动检测")
-            if _header_mode == "自动检测":
-                _header_row = None
-            elif _header_mode == "第一行":
-                _header_row = 1
-            elif _header_mode == "第二行":
-                _header_row = 2
-            else:
-                _header_row = st.session_state.get("custom_header_row", 1)
-            
-            # 执行处理
-            result = anonymize_upload(
-                st.session_state.anonymize_file.name,
-                st.session_state.anonymize_file.getvalue(),
-                seed_mapping_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
-                seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
-                header_row=_header_row,
-            )
-            
-            # 清空进度显示
-            progress_container.empty()
-            
-            # 显示成功信息
-            st.success(f"脱敏完成：{result['row_count']} 行，生成 {result['new_entity_count']} 个匹配项。")
-            
-            # 处理统计信息
-            new_count = result["new_entity_count"]
-            total_count = result["entity_count"]
-            
-            st.markdown(
-                f"""
-                <div class="pda-stats">
-                    <p class="pda-stats-title">处理统计</p>
-                    <div class="pda-stats-grid">
-                        <div class="pda-stat">
-                            <p class="pda-stat-num">{result['row_count']}</p>
-                            <p class="pda-stat-label">数据行数</p>
-                        </div>
-                        <div class="pda-stat">
-                            <p class="pda-stat-num">{new_count}</p>
-                            <p class="pda-stat-label">新增实体</p>
-                        </div>
-                        <div class="pda-stat">
-                            <p class="pda-stat-num">{total_count}</p>
-                            <p class="pda-stat-label">总计实体</p>
-                        </div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            
-            st.divider()
-            
-            # 下载选项
-            st.markdown("### 下载结果")
-            
-            zip_name = f"{result['stem']}_脱敏包.zip"
-            col1, col2 = st.columns(2)
-            with col1:
-                st.download_button(
-                    "⬇️ 一键打包下载（推荐）",
-                    data=result["zip_bundle"],
-                    file_name=zip_name,
-                    mime="application/zip",
-                    use_container_width=True,
-                    type="primary",
-                    key="download_zip",
-                )
-            with col2:
-                st.button(
-                    "处理其他文件",
-                    use_container_width=True,
-                    on_click=lambda: st.session_state.update({"processing": False, "anonymize_file": None, "seed_file": None, "header_mode": "自动检测", "custom_header_row": 1}),
-                    key="process_another",
-                )
-            
-            st.markdown(
-                """
-                <p class="pda-download-caption">
-                    ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
-                </p>
-                """,
-                unsafe_allow_html=True,
-            )
-            
-            # 单独下载选项
-            with st.expander("单独下载各文件", expanded=False):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.download_button(
-                        "Excel 脱敏数据",
-                        data=result["anonymized_xlsx"],
-                        file_name="anonymized.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        key="download_xlsx",
-                    )
-                    st.download_button(
-                        "匹配文件 JSON",
-                        data=str(result["mapping_json"]).encode("utf-8"),
-                        file_name="mapping.local.json",
-                        mime="application/json",
-                        use_container_width=True,
-                        key="download_json",
-                    )
-                with col2:
-                    st.download_button(
-                        "CSV 脱敏数据",
-                        data=result["anonymized_csv"],
-                        file_name="anonymized.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="download_csv",
-                    )
-                    st.download_button(
-                        "匹配表 CSV",
-                        data=result["mapping_table_csv"],
-                        file_name="mapping_table.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="download_mapping_csv",
-                    )
-            
-            st.warning("匹配文件和匹配表包含原始敏感信息，只能保存在本地。")
-            
-        except Exception as exc:
-            st.session_state.processing = False
-            st.error(f"处理失败：{str(exc)}")
-            if st.button("重新尝试", use_container_width=True):
-                st.rerun()
 
 
 _RESTORE_MIME = {
@@ -877,42 +864,88 @@ _RESTORE_MIME = {
 
 
 def render_restore() -> None:
-    # 初始化session state
-    if "restore_report" not in st.session_state:
-        st.session_state.restore_report = None
-    if "restore_mapping" not in st.session_state:
-        st.session_state.restore_mapping = None
-    if "restore_processing" not in st.session_state:
-        st.session_state.restore_processing = False
-    
-    # 显示进度指示器
-    st.markdown(
-        """
-        <div class="stage-container">
-            <div class="stage """ + ("active" if not (st.session_state.restore_report and st.session_state.restore_mapping) else "") + ("" if not st.session_state.restore_processing else " completed") + """">
-                <div class="stage-dot">1</div>
-                <div class="stage-label">上传文件</div>
-            </div>
-            <div class="stage """ + ("active" if st.session_state.restore_report and st.session_state.restore_mapping and not st.session_state.restore_processing else "") + ("" if not st.session_state.restore_processing else " completed") + """">
-                <div class="stage-dot">2</div>
-                <div class="stage-label">确认处理</div>
-            </div>
-            <div class="stage """ + ("active" if st.session_state.restore_processing else "") + """">
-                <div class="stage-dot">3</div>
-                <div class="stage-label">恢复中</div>
-            </div>
-            <div class="stage """ + ("completed" if st.session_state.restore_processing else "") + """">
-                <div class="stage-dot">✓</div>
-                <div class="stage-label">完成</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
+    for key, default in [
+        ("restore_report", None),
+        ("restore_mapping", None),
+        ("restore_processing", False),
+        ("restore_result", None),
+    ]:
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+    has_report = st.session_state.restore_report is not None
+    has_mapping = st.session_state.restore_mapping is not None
+    both = has_report and has_mapping
+    proc = st.session_state.restore_processing
+    has_result = st.session_state.restore_result is not None
+
+    s1 = "completed" if (both or proc or has_result) else "active"
+    s2 = "completed" if (proc or has_result) else ("active" if both else "")
+    s3 = "completed" if has_result else ("active" if proc else "")
+    s4 = "completed" if has_result else ""
+    st.markdown(_stage_html(s1, s2, s3, s4, label3="恢复中"), unsafe_allow_html=True)
     st.divider()
-    
-    # 第一步：上传报告文件
+
+    # ── Processing phase ──────────────────────────────────────────────────────
+    if proc and both:
+        try:
+            with st.spinner("正在恢复，请稍候..."):
+                result = restore_report_upload(
+                    report_content=st.session_state.restore_report.getvalue(),
+                    report_filename=st.session_state.restore_report.name,
+                    mapping_filename=st.session_state.restore_mapping.name,
+                    mapping_content=st.session_state.restore_mapping.getvalue(),
+                )
+            st.session_state.restore_result = result
+            st.session_state.restore_processing = False
+            st.rerun()
+        except Exception as exc:
+            st.session_state.restore_processing = False
+            st.error(f"恢复失败：{str(exc)}")
+            if st.button("重新尝试", use_container_width=True):
+                st.rerun()
+        return
+
+    # ── Result phase ──────────────────────────────────────────────────────────
+    if has_result:
+        result = st.session_state.restore_result
+        suffix = "." + result["filename"].rsplit(".", 1)[-1]
+        mime = _RESTORE_MIME.get(suffix, "application/octet-stream")
+
+        st.success("报告恢复完成。")
+        st.divider()
+        st.markdown("### 下载恢复结果")
+
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.download_button(
+                "下载反脱敏报告",
+                data=result["content"],
+                file_name=result["filename"],
+                mime=mime,
+                use_container_width=True,
+                type="primary",
+                key="download_restored",
+            )
+        with col2:
+            st.button(
+                "恢复其他文件",
+                use_container_width=True,
+                on_click=lambda: st.session_state.update({
+                    "restore_processing": False,
+                    "restore_report": None,
+                    "restore_mapping": None,
+                    "restore_result": None,
+                }),
+                key="restore_another",
+            )
+
+        if suffix in {".md", ".txt", ".html", ".htm"}:
+            with st.expander("预览恢复结果", expanded=True):
+                st.markdown(result["content"].decode("utf-8"))
+        return
+
+    # ── Upload phase ──────────────────────────────────────────────────────────
     st.markdown("### 第一步：选择待恢复的报告文件")
     report_file = st.file_uploader(
         "支持 md / txt / html / docx / pptx 等格式",
@@ -920,9 +953,8 @@ def render_restore() -> None:
         accept_multiple_files=False,
         key="report_file_uploader",
         label_visibility="collapsed",
-        disabled=st.session_state.restore_processing,
     )
-    
+
     if report_file is not None:
         st.session_state.restore_report = report_file
         st.markdown(
@@ -934,8 +966,7 @@ def render_restore() -> None:
             """,
             unsafe_allow_html=True,
         )
-    
-    # 第二步：上传匹配文件
+
     st.markdown("### 第二步：选择匹配文件")
     mapping_file = st.file_uploader(
         "选择 mapping.local.json 或 mapping_table.csv",
@@ -943,9 +974,8 @@ def render_restore() -> None:
         accept_multiple_files=False,
         key="mapping_file_uploader",
         label_visibility="collapsed",
-        disabled=st.session_state.restore_processing,
     )
-    
+
     if mapping_file is not None:
         st.session_state.restore_mapping = mapping_file
         st.markdown(
@@ -957,113 +987,38 @@ def render_restore() -> None:
             """,
             unsafe_allow_html=True,
         )
-    
+
     st.divider()
-    
-    # 处理按钮
-    if st.session_state.restore_report and st.session_state.restore_mapping:
+
+    if report_file is not None and mapping_file is not None:
         col1, col2 = st.columns([2, 1])
         with col1:
             start_restore_btn = st.button(
                 "开始恢复",
                 use_container_width=True,
                 type="primary",
-                disabled=st.session_state.restore_processing,
                 key="start_restore_btn",
             )
         with col2:
             reset_restore_btn = st.button(
                 "重新选择",
                 use_container_width=True,
-                disabled=st.session_state.restore_processing,
                 key="reset_restore_btn",
             )
-        
+
         if reset_restore_btn:
-            st.session_state.restore_report = None
-            st.session_state.restore_mapping = None
+            st.session_state.update({
+                "restore_report": None,
+                "restore_mapping": None,
+                "restore_result": None,
+            })
             st.rerun()
-        
+
         if start_restore_btn:
             st.session_state.restore_processing = True
             st.rerun()
-    else:
-        if report_file or mapping_file:
-            st.info("请同时上传报告文件和匹配文件。")
-    
-    # 处理流程
-    if st.session_state.restore_processing and st.session_state.restore_report and st.session_state.restore_mapping:
-        try:
-            # 显示处理进度
-            progress_container = st.container()
-            with progress_container:
-                st.markdown("### 处理进度")
-                progress_bar = st.progress(0)
-                
-                # 模拟处理过程
-                processing_steps = [
-                    ("读取报告文件...", 0.33),
-                    ("加载匹配信息...", 0.66),
-                    ("执行恢复...", 1.0),
-                ]
-                
-                for step_name, progress in processing_steps:
-                    with st.spinner(step_name):
-                        progress_bar.progress(progress)
-            
-            # 执行处理
-            result = restore_report_upload(
-                report_content=st.session_state.restore_report.getvalue(),
-                report_filename=st.session_state.restore_report.name,
-                mapping_filename=st.session_state.restore_mapping.name,
-                mapping_content=st.session_state.restore_mapping.getvalue(),
-            )
-            
-            # 清空进度显示
-            progress_container.empty()
-            
-            # 显示成功信息
-            st.success("报告恢复完成。")
-            
-            st.divider()
-            
-            # 下载选项
-            st.markdown("### 下载恢复结果")
-            
-            suffix = "." + result["filename"].rsplit(".", 1)[-1]
-            mime = _RESTORE_MIME.get(f".{result['filename'].rsplit('.', 1)[-1]}", "application/octet-stream")
-            
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.download_button(
-                    "下载反脱敏报告",
-                    data=result["content"],
-                    file_name=result["filename"],
-                    mime=mime,
-                    use_container_width=True,
-                    type="primary",
-                    key="download_restored",
-                )
-            with col2:
-                st.button(
-                    "恢复其他文件",
-                    use_container_width=True,
-                    on_click=lambda: st.session_state.update({"restore_processing": False, "restore_report": None, "restore_mapping": None}),
-                    key="restore_another",
-                )
-            
-            # 预览恢复结果
-            is_text = suffix in {".md", ".txt", ".html", ".htm"}
-            if is_text:
-                with st.expander("预览恢复结果", expanded=True):
-                    text = result["content"].decode("utf-8")
-                    st.markdown(text)
-            
-        except Exception as exc:
-            st.session_state.restore_processing = False
-            st.error(f"恢复失败：{str(exc)}")
-            if st.button("重新尝试", use_container_width=True):
-                st.rerun()
+    elif report_file or mapping_file:
+        st.info("请同时上传报告文件和匹配文件。")
 
 
 if __name__ == "__main__":
