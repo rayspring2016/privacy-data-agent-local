@@ -6,87 +6,86 @@ from privacy_data_agent.web_helpers import anonymize_upload, restore_report_uplo
 
 _DARK_THEME_CSS = """<style>
 :root {
-    --pda-primary: #5aa080;
-    --pda-primary-hover: #6db89c;
-    --pda-primary-active: #4a9070;
-    --pda-primary-subtle: rgba(109,184,156,0.08);
-    --pda-text: #e4e4e7;
-    --pda-text-secondary: #7e7e86;
-    --pda-text-muted: #545459;
+    --pda-primary: #D4887B;
+    --pda-primary-hover: #DE9D93;
+    --pda-primary-active: #C67A6E;
+    --pda-primary-subtle: rgba(212,136,123,0.08);
+    --pda-text: #F4F4F5;
+    --pda-text-secondary: #A1A1AA;
+    --pda-text-muted: #71717A;
     --pda-border: rgba(255,255,255,0.06);
-    --pda-border-strong: rgba(255,255,255,0.08);
-    --pda-bg: #181b24;
-    --pda-bg-secondary: #151820;
-    --pda-bg-tertiary: #13151e;
-    --pda-success: #3dd68c;
-    --pda-success-bg: rgba(61,214,140,0.06);
-    --pda-success-border: rgba(61,214,140,0.12);
-    --pda-success-text: #5fe09e;
-    --pda-warning: #f59e0b;
-    --pda-warning-bg: rgba(245,158,11,0.06);
-    --pda-warning-border: rgba(245,158,11,0.12);
-    --pda-warning-text: #fbbf24;
-    --pda-error-bg: rgba(239,68,68,0.06);
-    --pda-error-border: rgba(239,68,68,0.12);
-    --pda-error-text: #f87171;
-    --pda-info-bg: rgba(96,165,250,0.06);
-    --pda-info-border: rgba(96,165,250,0.12);
-    --pda-info-text: #93c5fd;
-    --pda-font: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+    --pda-border-strong: rgba(255,255,255,0.10);
+    --pda-bg: #0C0C0F;
+    --pda-bg-secondary: #18181B;
+    --pda-bg-tertiary: #1F1F23;
+    --pda-success: #3DD68C;
+    --pda-success-bg: rgba(61,214,140,0.08);
+    --pda-success-border: rgba(61,214,140,0.14);
+    --pda-success-text: #5FE09E;
+    --pda-warning: #F59E0B;
+    --pda-warning-bg: rgba(245,158,11,0.08);
+    --pda-warning-border: rgba(245,158,11,0.14);
+    --pda-warning-text: #FBBF24;
+    --pda-error-bg: rgba(239,68,68,0.08);
+    --pda-error-border: rgba(239,68,68,0.14);
+    --pda-error-text: #F87171;
+    --pda-info-bg: rgba(161,161,170,0.06);
+    --pda-info-border: rgba(161,161,170,0.12);
+    --pda-info-text: #D4D4D8;
+    --pda-font: "Outfit", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(109,184,156,0.06) 0%, transparent 60%),
-        #111318 !important;
+        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(212,136,123,0.04) 0%, transparent 60%),
+        #09090B !important;
 }
-code { background: #13151e !important; }
+code { background: #18181B !important; }
 .stButton > button:not([kind="primary"]):hover,
 .stDownloadButton > button:not([kind="primary"]):hover,
-[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #1c1f2a !important; }
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #27272A !important; }
 </style>"""
 
 _LIGHT_THEME_CSS = """<style>
 :root {
-    --pda-primary: #5aa080;
-    --pda-primary-hover: #6db89c;
-    --pda-primary-active: #4a9070;
-    --pda-primary-subtle: #e8f5f0;
-    --pda-text: #1a1a1d;
-    --pda-text-secondary: #5c5c63;
-    --pda-text-muted: #9999a0;
-    --pda-border: #f0f0f3;
-    --pda-border-strong: #e4e4e8;
-    --pda-bg: #ffffff;
-    --pda-bg-secondary: #fafafc;
-    --pda-bg-tertiary: #f5f5f8;
-    --pda-success: #3dd68c;
-    --pda-success-bg: #f0fdf6;
-    --pda-success-border: #bbf7d0;
-    --pda-success-text: #15803d;
-    --pda-warning: #f59e0b;
-    --pda-warning-bg: #fffdf5;
-    --pda-warning-border: #fde68a;
-    --pda-warning-text: #92400e;
-    --pda-error-bg: #fef2f2;
-    --pda-error-border: #fecaca;
-    --pda-error-text: #991b1b;
-    --pda-info-bg: #f0f5fe;
-    --pda-info-border: #bfdbfe;
-    --pda-info-text: #1d4ed8;
-    --pda-font: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+    --pda-primary: #B55B4F;
+    --pda-primary-hover: #C46E63;
+    --pda-primary-active: #9E4E43;
+    --pda-primary-subtle: rgba(181,91,79,0.06);
+    --pda-text: #18181B;
+    --pda-text-secondary: #71717A;
+    --pda-text-muted: #A1A1AA;
+    --pda-border: #E4E4E7;
+    --pda-border-strong: #D4D4D8;
+    --pda-bg: #FAFAFA;
+    --pda-bg-secondary: #F4F4F5;
+    --pda-bg-tertiary: #ECECEE;
+    --pda-success: #2CA15B;
+    --pda-success-bg: rgba(44,161,91,0.06);
+    --pda-success-border: rgba(44,161,91,0.14);
+    --pda-success-text: #166534;
+    --pda-warning: #D97706;
+    --pda-warning-bg: rgba(217,119,6,0.06);
+    --pda-warning-border: rgba(217,119,6,0.14);
+    --pda-warning-text: #92400E;
+    --pda-error-bg: rgba(181,91,79,0.06);
+    --pda-error-border: rgba(181,91,79,0.14);
+    --pda-error-text: #991B1B;
+    --pda-info-bg: rgba(113,113,122,0.05);
+    --pda-info-border: rgba(113,113,122,0.12);
+    --pda-info-text: #3F3F46;
+    --pda-font: "Outfit", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 900px 400px at 60% -10%, rgba(90,160,128,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 600px 300px at 10% 80%, rgba(90,160,128,0.04) 0%, transparent 50%),
-        #fafafc !important;
+        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(181,91,79,0.03) 0%, transparent 60%),
+        #FAFAFA !important;
 }
-code { background: #f5f5f8 !important; }
+code { background: #F4F4F5 !important; }
 .stButton > button:not([kind="primary"]):hover,
 .stDownloadButton > button:not([kind="primary"]):hover,
-[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #f0f0f3 !important; }
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #ECECEE !important; }
 </style>"""
 
 
@@ -105,6 +104,7 @@ def main() -> None:
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
         header, footer, #MainMenu, [data-testid="stToolbar"], [data-testid="stDecoration"],
         [data-testid="stStatusWidget"], .stDeployButton {
@@ -130,28 +130,31 @@ def main() -> None:
             max-width: 730px;
         }
 
+        /* ── Typography ─────────────────────────────────────────── */
+
         .stMarkdown h1 {
             color: var(--pda-text) !important;
-            font-size: 2.25rem !important;
+            font-size: 2rem !important;
             font-weight: 700 !important;
             line-height: 1.15 !important;
             margin-bottom: 0.4rem !important;
             margin-top: 0 !important;
-            letter-spacing: -0.01em;
+            letter-spacing: -0.02em;
         }
 
         .stMarkdown h2 {
             color: var(--pda-text) !important;
-            font-size: 1.5rem !important;
+            font-size: 1.375rem !important;
             font-weight: 600 !important;
-            line-height: 1.3 !important;
+            line-height: 1.25 !important;
             margin-top: 1.5rem !important;
             margin-bottom: 0.75rem !important;
+            letter-spacing: -0.01em;
         }
 
         .stMarkdown h3 {
             color: var(--pda-text) !important;
-            font-size: 1.25rem !important;
+            font-size: 1.125rem !important;
             font-weight: 600 !important;
             line-height: 1.3 !important;
             margin-top: 1.25rem !important;
@@ -160,14 +163,17 @@ def main() -> None:
 
         .stMarkdown p, .stCaption, label, [data-testid="stMarkdownContainer"] {
             color: var(--pda-text-secondary) !important;
-            line-height: 1.5 !important;
+            line-height: 1.55 !important;
+            font-size: 0.9375rem !important;
         }
 
         code {
             font-family: var(--pda-mono) !important;
+            font-size: 0.8125rem !important;
+            font-weight: 500 !important;
             background: var(--pda-bg-secondary) !important;
             color: var(--pda-text) !important;
-            border-radius: 3px !important;
+            border-radius: 4px !important;
             padding: 0.1em 0.35em !important;
         }
 
@@ -176,17 +182,20 @@ def main() -> None:
             margin: 1.25rem 0 !important;
         }
 
+        /* ── Tabs ────────────────────────────────────────────────── */
+
         [data-baseweb="tab-list"] {
-            gap: 1.75rem !important;
+            gap: 1.5rem !important;
             border-bottom: 1px solid var(--pda-border) !important;
             margin-top: 1rem !important;
         }
 
         [data-baseweb="tab"] {
             color: var(--pda-text-muted) !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
             padding: 0.85rem 0 !important;
             background: transparent !important;
+            transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         [data-baseweb="tab"][aria-selected="true"] {
@@ -196,11 +205,14 @@ def main() -> None:
         [data-baseweb="tab-highlight"] {
             background-color: var(--pda-primary) !important;
             height: 2px !important;
+            transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         [data-baseweb="tab-border"] {
             display: none !important;
         }
+
+        /* ── Radio group (tab-style) ─────────────────────────────── */
 
         [role="radiogroup"] {
             display: flex !important;
@@ -213,13 +225,14 @@ def main() -> None:
         [role="radio"] {
             flex: 0 0 auto !important;
             padding: 0.85rem 0 !important;
-            margin-right: 1.75rem !important;
+            margin-right: 1.5rem !important;
             border-radius: 0 !important;
             background: transparent !important;
             border: 0 !important;
             border-bottom: 2px solid transparent !important;
             cursor: pointer !important;
-            transition: color 0.15s, border-color 0.15s !important;
+            transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         [role="radio"] > div:first-child {
@@ -247,8 +260,8 @@ def main() -> None:
 
         [role="radio"] > label {
             cursor: pointer !important;
-            font-weight: 600 !important;
-            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+            font-size: 0.9375rem !important;
             color: var(--pda-text-muted) !important;
             margin: 0 !important;
             line-height: 1.4 !important;
@@ -258,37 +271,51 @@ def main() -> None:
             color: var(--pda-text) !important;
         }
 
+        /* ── File uploader ───────────────────────────────────────── */
+
         .uploadedFile {
             background: var(--pda-success-bg) !important;
             border: 1px solid var(--pda-success-border) !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
             padding: 0.8rem !important;
             margin: 0.6rem 0 !important;
         }
 
         [data-testid="stFileUploader"] {
-            background: var(--pda-bg-tertiary) !important;
-            border: 1.5px dashed var(--pda-border-strong) !important;
+            background: var(--pda-bg) !important;
+            border: 1.5px solid var(--pda-border-strong) !important;
             border-radius: 8px !important;
             padding: 1.5rem !important;
-            transition: border-color 0.15s, background 0.15s !important;
             margin: 0.6rem 0 !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.04);
+            transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.2s ease !important;
         }
 
         [data-testid="stFileUploader"]:hover {
             border-color: var(--pda-primary) !important;
             background: var(--pda-primary-subtle) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 8px rgba(181,91,79,0.06);
         }
+
+        /* ── Buttons ─────────────────────────────────────────────── */
 
         .stButton > button {
             width: 100%;
             padding: 0.75rem 1rem !important;
-            font-size: 0.95rem !important;
+            font-size: 0.9375rem !important;
             font-weight: 600 !important;
-            border-radius: 6px !important;
-            transition: background 0.15s, border-color 0.15s, color 0.15s !important;
+            border-radius: 7px !important;
             letter-spacing: 0;
             cursor: pointer !important;
+            transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+        }
+
+        .stButton > button[kind="primary"]:active,
+        .stDownloadButton > button[kind="primary"]:active,
+        [data-testid="stBaseButton-primary"]:active {
+            transform: scale(0.985) !important;
         }
 
         .stButton > button[kind="primary"],
@@ -297,9 +324,15 @@ def main() -> None:
             background: var(--pda-primary) !important;
             color: #ffffff !important;
             border: 1px solid var(--pda-primary) !important;
-            border-radius: 6px !important;
-            box-shadow: none !important;
+            border-radius: 7px !important;
+            box-shadow: 0 1px 3px rgba(181,91,79,0.15), 0 4px 12px rgba(181,91,79,0.08) !important;
             font-weight: 600 !important;
+        }
+
+        .stButton > button[kind="primary"] p,
+        .stDownloadButton > button[kind="primary"] p,
+        [data-testid="stBaseButton-primary"] p {
+            color: #ffffff !important;
         }
 
         .stButton > button[kind="primary"]:hover,
@@ -307,6 +340,13 @@ def main() -> None:
         [data-testid="stBaseButton-primary"]:hover {
             background: var(--pda-primary-hover) !important;
             border-color: var(--pda-primary-hover) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(181,91,79,0.2), 0 6px 16px rgba(181,91,79,0.1) !important;
+        }
+
+        .stButton > button[kind="primary"]:hover p,
+        .stDownloadButton > button[kind="primary"]:hover p,
+        [data-testid="stBaseButton-primary"]:hover p {
             color: #ffffff !important;
         }
 
@@ -316,14 +356,20 @@ def main() -> None:
             background: var(--pda-bg-secondary) !important;
             color: var(--pda-text) !important;
             border: 1px solid var(--pda-border-strong) !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
             font-weight: 600 !important;
+        }
+
+        .stButton > button:not([kind="primary"]) p,
+        .stDownloadButton > button:not([kind="primary"]) p,
+        [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]) p {
+            color: var(--pda-text) !important;
         }
 
         .stButton > button:not([kind="primary"]):hover,
         .stDownloadButton > button:not([kind="primary"]):hover,
         [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover {
-            border-color: var(--pda-border-strong) !important;
+            border-color: var(--pda-text-muted) !important;
         }
 
         .stCaption {
@@ -332,76 +378,119 @@ def main() -> None:
             margin-top: 0.5rem !important;
         }
 
+        /* ── Download button arrow icon ──────────────────────────── */
+
+        .stDownloadButton > button[kind="primary"]::before,
+        [data-testid="stBaseButton-primary"]::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg) translateY(-1px);
+            margin-right: 8px;
+            opacity: 0.9;
+        }
+
+        /* ── Alerts ──────────────────────────────────────────────── */
+
         [data-testid="stAlert"] {
-            border-radius: 6px !important;
+            border-radius: 7px !important;
             border: 1px solid !important;
+            border-left-width: 3px !important;
             padding: 0.8rem !important;
             margin: 0.6rem 0 !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5) !important;
         }
 
         [data-testid="stAlert"][kind="info"] {
             background: var(--pda-info-bg) !important;
             border-color: var(--pda-info-border) !important;
+            border-left-color: var(--pda-info-text) !important;
             color: var(--pda-info-text) !important;
         }
 
         [data-testid="stAlert"][kind="success"] {
             background: var(--pda-success-bg) !important;
             border-color: var(--pda-success-border) !important;
+            border-left-color: var(--pda-success) !important;
             color: var(--pda-success-text) !important;
         }
 
         [data-testid="stAlert"][kind="error"] {
             background: var(--pda-error-bg) !important;
             border-color: var(--pda-error-border) !important;
+            border-left-color: var(--pda-error-text) !important;
             color: var(--pda-error-text) !important;
+            animation: error-shake 0.4s ease;
         }
 
         [data-testid="stAlert"][kind="warning"] {
             background: var(--pda-warning-bg) !important;
             border-color: var(--pda-warning-border) !important;
+            border-left-color: var(--pda-warning) !important;
             color: var(--pda-warning-text) !important;
         }
+
+        /* ── Expanders ───────────────────────────────────────────── */
 
         [data-testid="stExpander"] {
             background: var(--pda-bg) !important;
             border: 1px solid var(--pda-border) !important;
-            border-radius: 6px !important;
+            border-radius: 8px !important;
             margin: 0.6rem 0 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            transition: box-shadow 0.2s ease !important;
+        }
+
+        [data-testid="stExpander"]:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
         [data-testid="stExpander"] summary {
             color: var(--pda-text) !important;
             font-weight: 600 !important;
             padding: 0.8rem !important;
+            transition: background 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         [data-testid="stExpander"] summary:hover {
             background: var(--pda-bg-tertiary) !important;
         }
 
+        /* ── Inputs ──────────────────────────────────────────────── */
+
         input, textarea, select {
             background: var(--pda-bg) !important;
             border: 1px solid var(--pda-border-strong) !important;
             color: var(--pda-text) !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
+            transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         input:focus, textarea:focus, select:focus {
             border-color: var(--pda-primary) !important;
             box-shadow: 0 0 0 1px var(--pda-primary) !important;
+            outline: none !important;
         }
+
+        /* ── Custom: caption ─────────────────────────────────────── */
 
         .pda-caption {
             color: var(--pda-text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.9375rem;
             margin: 0.25rem 0 1.5rem;
         }
+
+        /* ── Custom: selected file badge ─────────────────────────── */
 
         .pda-selected-file {
             background: var(--pda-success-bg);
             border: 1px solid var(--pda-success-border);
-            border-radius: 6px;
+            border-left: 3px solid var(--pda-success);
+            border-radius: 7px;
             padding: 1rem;
             margin: 1rem 0;
         }
@@ -415,48 +504,66 @@ def main() -> None:
         .pda-selected-file p:last-child {
             margin: 0.35rem 0 0;
             color: var(--pda-success-text);
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             font-family: var(--pda-mono);
         }
 
+        /* ── Custom: stats card (key-value rows) ─────────────────── */
+
         .pda-stats {
-            background: var(--pda-info-bg);
-            border: 1px solid var(--pda-info-border);
-            border-radius: 6px;
+            background: var(--pda-bg-secondary);
+            border: 1px solid var(--pda-border);
+            border-radius: 8px;
             padding: 1.25rem;
             margin: 1.25rem 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.03);
         }
 
         .pda-stats-title {
-            margin: 0;
-            color: var(--pda-info-text);
+            margin: 0 0 1rem 0;
+            color: var(--pda-text);
             font-weight: 600;
+            font-size: 0.9375rem;
         }
 
-        .pda-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+        .pda-stats-rows {
+            display: flex;
+            flex-direction: column;
         }
 
-        .pda-stat {
-            text-align: center;
+        .pda-stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid var(--pda-border);
+            animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .pda-stats-row:nth-child(1) { animation-delay: 0.00s; }
+        .pda-stats-row:nth-child(2) { animation-delay: 0.05s; }
+        .pda-stats-row:nth-child(3) { animation-delay: 0.10s; }
+
+        .pda-stats-row:last-child {
+            border-bottom: none;
         }
 
         .pda-stat-num {
             margin: 0;
-            color: var(--pda-info-text);
-            font-size: 1.5rem;
+            color: var(--pda-text);
+            font-size: 1.25rem;
             font-weight: 700;
             font-family: var(--pda-mono);
         }
 
         .pda-stat-label {
-            margin: 0.35rem 0 0;
+            margin: 0;
             color: var(--pda-text-secondary);
-            font-size: 0.85rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
         }
+
+        /* ── Custom: download caption ────────────────────────────── */
 
         .pda-download-caption {
             color: var(--pda-text-secondary);
@@ -464,71 +571,149 @@ def main() -> None:
             margin-top: 1rem;
         }
 
-        .stage-container {
+        /* ── Custom: horizontal progress tracker ─────────────────── */
+
+        .progress-tracker {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            margin: 1.5rem 0;
-            gap: 0.5rem;
+            margin: 1.25rem 0;
         }
 
-        .stage {
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            flex-shrink: 0;
+        }
+
+        .progress-connector {
             flex: 1;
-            text-align: center;
-            padding: 0.9rem 0.65rem;
-            background: var(--pda-bg-tertiary);
-            border-radius: 6px;
-            border: 1px solid var(--pda-border);
+            height: 1.5px;
+            min-width: 12px;
+            margin: 0 4px;
+            margin-bottom: 1.35rem;
+            background: var(--pda-border);
+            transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .stage.active {
-            background: var(--pda-primary-subtle);
-            border-color: var(--pda-primary);
+        .progress-connector.done {
+            background: var(--pda-success);
         }
 
-        .stage.completed {
-            background: var(--pda-success-bg);
-            border-color: var(--pda-success-border);
+        .progress-connector.active {
+            background: var(--pda-primary);
         }
 
-        .stage-dot {
-            width: 28px;
-            height: 28px;
-            border-radius: 999px;
+        .progress-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 0.45rem;
+            flex-shrink: 0;
             font-weight: 600;
+            font-size: 0.75rem;
             background: var(--pda-bg-secondary);
             color: var(--pda-text-secondary);
-            border: 1px solid var(--pda-border-strong);
+            border: 1.5px solid var(--pda-border-strong);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .stage.active .stage-dot {
+        .progress-step.active .progress-dot {
             background: var(--pda-primary);
             border-color: var(--pda-primary);
             color: #ffffff;
+            animation: step-pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 0 4px var(--pda-primary-subtle);
         }
 
-        .stage.completed .stage-dot {
+        .progress-step.completed .progress-dot {
             background: var(--pda-success);
             border-color: var(--pda-success);
             color: #ffffff;
         }
 
-        .stage-label {
-            font-size: 0.8125rem;
+        .progress-label {
+            font-size: 0.75rem;
             color: var(--pda-text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+            transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .progress-step.active .progress-label {
+            color: var(--pda-primary);
             font-weight: 600;
         }
 
-        .stage.active .stage-label {
-            color: var(--pda-primary);
-        }
-
-        .stage.completed .stage-label {
+        .progress-step.completed .progress-label {
             color: var(--pda-success-text);
         }
+
+        /* ── Dark mode toggle positioning ────────────────────────── */
+
+        .pda-header-row {
+            position: relative;
+        }
+
+        [data-testid="stToggle"] {
+            margin-top: 0.25rem;
+        }
+
+        /* ── Keyframes ───────────────────────────────────────────── */
+
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -400px 0;
+            }
+            100% {
+                background-position: 400px 0;
+            }
+        }
+
+        @keyframes step-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 4px var(--pda-primary-subtle);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(181,91,79,0.02);
+            }
+        }
+
+        @keyframes error-shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 50%, 90% { transform: translateX(-2px); }
+            30%, 70% { transform: translateX(2px); }
+        }
+
+        .pda-loading-skeleton {
+            background: linear-gradient(
+                90deg,
+                var(--pda-bg-tertiary) 25%,
+                var(--pda-bg-secondary) 50%,
+                var(--pda-bg-tertiary) 75%
+            );
+            background-size: 400px 100%;
+            animation: shimmer 1.5s ease-in-out infinite;
+            border-radius: 6px;
+            height: 1rem;
+        }
+
+        /* ── Mobile ──────────────────────────────────────────────── */
 
         @media (max-width: 480px) {
             .block-container {
@@ -537,21 +722,17 @@ def main() -> None:
                 padding-top: 2.5rem;
             }
             .stMarkdown h1 {
-                font-size: 2.25rem !important;
-                word-break: keep-all;
+                font-size: 1.75rem !important;
             }
             .stMarkdown h2 {
-                font-size: 1.35rem !important;
+                font-size: 1.25rem !important;
             }
             [role="radiogroup"] {
                 overflow-x: auto !important;
+                flex-wrap: nowrap !important;
             }
-            .stage-container,
-            .pda-stats-grid {
-                grid-template-columns: 1fr;
-            }
-            .stage-container {
-                flex-direction: column;
+            .progress-tracker {
+                margin: 1rem 0;
             }
         }
         </style>
@@ -559,16 +740,12 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    _title_col, _toggle_col = st.columns([8, 1])
-    with _title_col:
-        st.markdown("# 本地数据脱敏工具")
-        st.markdown(
-            '<p class="pda-caption">文件只在本机处理，不会上传到服务器，也不会调用大模型。</p>',
-            unsafe_allow_html=True,
-        )
-    with _toggle_col:
-        st.markdown("<div style='padding-top:1.4rem'></div>", unsafe_allow_html=True)
-        st.toggle("🌙", key="dark_mode")
+    st.markdown("# 本地数据脱敏工具")
+    st.markdown(
+        '<p class="pda-caption">文件只在本机处理，不会上传到服务器，也不会调用大模型。</p>',
+        unsafe_allow_html=True,
+    )
+    st.toggle("深色模式", key="dark_mode")
 
     anonymize_tab, restore_tab = st.tabs(["数据脱敏", "报告反脱敏"])
 
@@ -580,23 +757,37 @@ def main() -> None:
 
 
 def _stage_html(s1: str, s2: str, s3: str, s4: str, label3: str = "处理中") -> str:
+    def _connector(a: str, b: str) -> str:
+        if a == "completed" and b == "completed":
+            return "done"
+        if a == "completed" and b == "active":
+            return "active"
+        return ""
+
+    c12 = _connector(s1, s2)
+    c23 = _connector(s2, s3)
+    c34 = _connector(s3, s4)
+
     return f"""
-    <div class="stage-container">
-        <div class="stage {s1}">
-            <div class="stage-dot">1</div>
-            <div class="stage-label">上传文件</div>
+    <div class="progress-tracker">
+        <div class="progress-step {s1}">
+            <div class="progress-dot">{'&#10003;' if s1 == 'completed' else '1'}</div>
+            <div class="progress-label">上传文件</div>
         </div>
-        <div class="stage {s2}">
-            <div class="stage-dot">2</div>
-            <div class="stage-label">配置选项</div>
+        <div class="progress-connector {c12}"></div>
+        <div class="progress-step {s2}">
+            <div class="progress-dot">{'&#10003;' if s2 == 'completed' else '2'}</div>
+            <div class="progress-label">配置选项</div>
         </div>
-        <div class="stage {s3}">
-            <div class="stage-dot">3</div>
-            <div class="stage-label">{label3}</div>
+        <div class="progress-connector {c23}"></div>
+        <div class="progress-step {s3}">
+            <div class="progress-dot">{'&#10003;' if s3 == 'completed' else '3'}</div>
+            <div class="progress-label">{label3}</div>
         </div>
-        <div class="stage {s4}">
-            <div class="stage-dot">✓</div>
-            <div class="stage-label">完成</div>
+        <div class="progress-connector {c34}"></div>
+        <div class="progress-step {s4}">
+            <div class="progress-dot">{'&#10003;' if s4 == 'completed' else '4'}</div>
+            <div class="progress-label">完成</div>
         </div>
     </div>
     """
@@ -668,18 +859,18 @@ def render_anonymize() -> None:
             f"""
             <div class="pda-stats">
                 <p class="pda-stats-title">处理统计</p>
-                <div class="pda-stats-grid">
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{result['row_count']}</p>
-                        <p class="pda-stat-label">数据行数</p>
+                <div class="pda-stats-rows">
+                    <div class="pda-stats-row">
+                        <span class="pda-stat-num">{result['row_count']}</span>
+                        <span class="pda-stat-label">数据行数</span>
                     </div>
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{new_count}</p>
-                        <p class="pda-stat-label">新增实体</p>
+                    <div class="pda-stats-row">
+                        <span class="pda-stat-num">{new_count}</span>
+                        <span class="pda-stat-label">新增实体</span>
                     </div>
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{total_count}</p>
-                        <p class="pda-stat-label">总计实体</p>
+                    <div class="pda-stats-row">
+                        <span class="pda-stat-num">{total_count}</span>
+                        <span class="pda-stat-label">总计实体</span>
                     </div>
                 </div>
             </div>
@@ -693,7 +884,7 @@ def render_anonymize() -> None:
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(
-                "⬇️ 一键打包下载（推荐）",
+                "一键打包下载（推荐）",
                 data=result["zip_bundle"],
                 file_name=zip_name,
                 mime="application/zip",
