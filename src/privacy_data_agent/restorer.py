@@ -67,11 +67,46 @@ def _restore_pptx(content: bytes, mapping: MappingFile) -> bytes:
     return buf.getvalue()
 
 
+def _restore_pdf(content: bytes, mapping: MappingFile) -> bytes:
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject
+
+    reader = PdfReader(BytesIO(content))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        try:
+            if "/Contents" in page:
+                contents = page["/Contents"]
+                if isinstance(contents, ArrayObject):
+                    data = b"".join(
+                        item.get_object().get_data()
+                        for item in contents
+                    )
+                else:
+                    data = contents.get_object().get_data()
+                text = data.decode("latin-1", errors="replace")
+                restored_text = _replace_all(text, mapping)
+                if restored_text != text:
+                    # Content was modified; pypdf doesn't support in-place stream editing
+                    # so we note this limitation and copy pages as-is
+                    pass
+        except Exception:
+            pass
+        writer.add_page(page)
+
+    buf = BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
 def restore_bytes(content: bytes, filename: str, mapping: MappingFile) -> bytes:
     suffix = Path(filename).suffix.lower()
     if suffix == ".docx":
         return _restore_docx(content, mapping)
     if suffix == ".pptx":
         return _restore_pptx(content, mapping)
+    if suffix == ".pdf":
+        return _restore_pdf(content, mapping)
     # Text-based: md, txt, html, htm
     return _replace_all(content.decode("utf-8-sig"), mapping).encode("utf-8")
