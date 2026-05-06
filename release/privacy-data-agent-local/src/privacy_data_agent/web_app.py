@@ -295,7 +295,8 @@ def main() -> None:
 
         .stButton > button[kind="primary"],
         .stDownloadButton > button[kind="primary"],
-        [data-testid="stBaseButton-primary"] {
+        [data-testid="stBaseButton-primary"],
+        .stDownloadButton > button[type="primary"] {
             background: var(--pda-primary) !important;
             color: #ffffff !important;
             border: 1px solid var(--pda-primary) !important;
@@ -306,7 +307,8 @@ def main() -> None:
 
         .stButton > button[kind="primary"]:hover,
         .stDownloadButton > button[kind="primary"]:hover,
-        [data-testid="stBaseButton-primary"]:hover {
+        [data-testid="stBaseButton-primary"]:hover,
+        .stDownloadButton > button[type="primary"]:hover {
             background: var(--pda-primary-hover) !important;
             border-color: var(--pda-primary-hover) !important;
             color: #ffffff !important;
@@ -733,13 +735,19 @@ def render_anonymize() -> None:
             unsafe_allow_html=True,
         )
         with st.expander("单独下载各文件", expanded=False):
+            suffix = result.get("file_suffix", ".xlsx")
+            mime_map = {
+                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".pdf": "application/pdf",
+            }
             col1, col2 = st.columns(2)
             with col1:
                 st.download_button(
-                    "Excel 脱敏数据",
+                    f"脱敏文件（{suffix}）",
                     data=result["anonymized_xlsx"],
-                    file_name="anonymized.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    file_name=f"anonymized{suffix}",
+                    mime=mime_map.get(suffix, "application/octet-stream"),
                     use_container_width=True,
                     key="download_xlsx",
                 )

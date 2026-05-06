@@ -84,13 +84,22 @@ def mapping_to_table_csv_bytes(mapping: MappingFile) -> bytes:
     return buffer.getvalue()
 
 
-def create_zip_bundle(stem: str, anonymized_xlsx: bytes, mapping_json: str) -> bytes:
+def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str) -> bytes:
+    anonymized_name = f"anonymized{suffix}"
+    if suffix == ".xlsx":
+        file_desc = "脱敏后的 Excel 数据文件"
+    elif suffix == ".docx":
+        file_desc = "脱敏后的 Word 文档"
+    elif suffix == ".pdf":
+        file_desc = "脱敏后的 PDF 文档"
+    else:
+        file_desc = "脱敏后的数据文件"
     readme = (
         "脱敏数据包说明\n"
         "==============\n\n"
         f"原始文件：{stem}\n\n"
         "文件清单：\n"
-        "  anonymized.xlsx     — 脱敏后的数据文件，可安全发送给大模型或外部\n"
+        f"  {anonymized_name}  — {file_desc}，可安全发送给大模型或外部\n"
         "  mapping.local.json  — 匹配文件（含原始敏感信息，仅限本地保存）\n\n"
         "反脱敏步骤：\n"
         "  1. 打开脱敏工具，切换到「报告反脱敏」\n"
@@ -101,7 +110,7 @@ def create_zip_bundle(stem: str, anonymized_xlsx: bytes, mapping_json: str) -> b
     )
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("anonymized.xlsx", anonymized_xlsx)
+        zf.writestr(anonymized_name, anonymized_bytes)
         zf.writestr("mapping.local.json", mapping_json.encode("utf-8"))
         zf.writestr("README.txt", readme.encode("utf-8"))
     return buf.getvalue()
@@ -131,14 +140,14 @@ def anonymize_upload(
         row_count = docx_result.row_count
         preview_df = pd.DataFrame({"token": [e.token for e in result_mapping.entries]})
         anonymized_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
-        anonymized_xlsx = docx_result.workbook_bytes  # docx bytes
+        anonymized_docx = docx_result.workbook_bytes
     elif suffix == ".pdf":
         pdf_result = anonymize_pdf_bytes(content, seed_mapping=seed)
         result_mapping = pdf_result.mapping
         row_count = pdf_result.row_count
         preview_df = pd.DataFrame({"token": [e.token for e in result_mapping.entries]})
         anonymized_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
-        anonymized_xlsx = pdf_result.workbook_bytes  # pdf bytes
+        anonymized_pdf = pdf_result.workbook_bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
         result = anonymize_dataframe(df, seed_mapping=seed)
@@ -146,6 +155,18 @@ def anonymize_upload(
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
+
+    # Determine which anonymized file to use and its suffix
+    if suffix == ".docx":
+        anonymized_file = anonymized_docx
+        file_suffix = ".docx"
+    elif suffix == ".pdf":
+        anonymized_file = anonymized_pdf
+        file_suffix = ".pdf"
+    else:
+        anonymized_file = anonymized_xlsx
+        file_suffix = ".xlsx"
+
     mapping_json = result_mapping.model_dump_json(indent=2)
     stem = Path(filename).stem
     new_count = len(result_mapping.entries) - (len(seed.entries) if seed else 0)
@@ -154,11 +175,12 @@ def anonymize_upload(
         "entity_count": len(result_mapping.entries),
         "new_entity_count": new_count,
         "stem": stem,
+        "file_suffix": file_suffix,
         "anonymized_csv": anonymized_csv,
-        "anonymized_xlsx": anonymized_xlsx,
+        "anonymized_xlsx": anonymized_file,
         "mapping_json": mapping_json,
         "mapping_table_csv": mapping_to_table_csv_bytes(result_mapping),
-        "zip_bundle": create_zip_bundle(stem, anonymized_xlsx, mapping_json),
+        "zip_bundle": create_zip_bundle(stem, anonymized_file, mapping_json, file_suffix),
     }
 
 

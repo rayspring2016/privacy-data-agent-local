@@ -132,18 +132,22 @@ def detect_header_row(raw_rows: list[list[str]]) -> int:
     return 1
 
 
+CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
+DETECTORS_BY_RE = [
+    (ID_NUMBER_RE, EntityType.ID_NUMBER),
+    (PHONE_RE, EntityType.PHONE),
+    (EMAIL_RE, EntityType.EMAIL),
+    (LICENSE_PLATE_RE, EntityType.LICENSE_PLATE),
+    (EMPLOYEE_ID_RE, EntityType.EMPLOYEE_ID),
+    (CHINESE_NAME_RE, EntityType.EMPLOYEE),
+]
+
+
 def detect_cell_entity_type(value: object) -> EntityType | None:
     text = "" if value is None else str(value).strip()
     if not text:
         return None
-    if ID_NUMBER_RE.match(text):
-        return EntityType.ID_NUMBER
-    if PHONE_RE.match(text):
-        return EntityType.PHONE
-    if EMAIL_RE.match(text):
-        return EntityType.EMAIL
-    if LICENSE_PLATE_RE.match(text):
-        return EntityType.LICENSE_PLATE
-    if EMPLOYEE_ID_RE.match(text):
-        return EntityType.EMPLOYEE_ID
+    for pattern, entity_type in DETECTORS_BY_RE:
+        if pattern.match(text):
+            return entity_type
     return None
