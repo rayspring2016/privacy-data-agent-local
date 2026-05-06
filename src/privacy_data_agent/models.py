@@ -14,6 +14,7 @@ class EntityType(StrEnum):
     CUSTOMER = "customer"
     PHONE = "phone"
     EMAIL = "email"
+    LICENSE_PLATE = "license_plate"
 
 
 ANON_TOKEN_PREFIX = "PDA"

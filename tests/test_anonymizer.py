@@ -35,6 +35,24 @@ def test_anonymizes_sensitive_columns_and_builds_mapping():
     assert TOKEN_RE.fullmatch(result.mapping.entries[0].token)
 
 
+def test_license_plate_detection():
+    """Blue license plates (新能源 excluded for simplicity) are detected and anonymized."""
+    df = pd.DataFrame({
+        "车牌号": ["苏E8V329", "苏E12345", "京A12345"],
+    })
+
+    result = anonymize_dataframe(df)
+
+    csv_text = result.dataframe.to_csv(index=False)
+    for raw in ["苏E8V329", "苏E12345", "京A12345"]:
+        assert raw not in csv_text
+    assert TOKEN_RE.findall(csv_text)
+    plate_entries = [e for e in result.mapping.entries if e.entity_type == EntityType.LICENSE_PLATE]
+    assert len(plate_entries) == 3
+    for entry in plate_entries:
+        assert TOKEN_RE.fullmatch(entry.token)
+
+
 def test_reuses_same_token_for_repeated_value():
     df = pd.DataFrame({"部门": ["华东销售一部", "华东销售一部"]})
 

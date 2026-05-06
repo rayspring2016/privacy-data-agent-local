@@ -7,6 +7,7 @@ from privacy_data_agent.models import EntityType
 ID_NUMBER_RE = re.compile(r"^\d{17}[\dXx]$")
 PHONE_RE = re.compile(r"^(?:\+?86[- ]?)?1[3-9]\d{9}$")
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+LICENSE_PLATE_RE = re.compile(r"^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉贵粤青藏川宁琼使领][A-Z][A-Z0-9]{5}$")
 # Employee / work number with letter prefix (e.g. EMP0012, A12345).
 # Pure-digit IDs (e.g. 001234) are too ambiguous without column context; use column hints instead.
 EMPLOYEE_ID_RE = re.compile(r"^[A-Za-z]{1,3}\d{4,10}$")
@@ -89,6 +90,7 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     ),
     (EntityType.PHONE, ("手机号", "电话", "phone", "mobile")),
     (EntityType.EMAIL, ("邮箱", "email", "e-mail")),
+    (EntityType.LICENSE_PLATE, ("车牌", "车牌号", "车牌号码", "license_plate", "plate", "car_plate", "vehicle_plate")),
 )
 
 
@@ -140,6 +142,8 @@ def detect_cell_entity_type(value: object) -> EntityType | None:
         return EntityType.PHONE
     if EMAIL_RE.match(text):
         return EntityType.EMAIL
+    if LICENSE_PLATE_RE.match(text):
+        return EntityType.LICENSE_PLATE
     if EMPLOYEE_ID_RE.match(text):
         return EntityType.EMPLOYEE_ID
     return None
