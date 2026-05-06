@@ -49,37 +49,47 @@ def anonymize_docx_bytes(content: bytes, seed_mapping: MappingFile | None = None
 
 def anonymize_pdf_bytes(content: bytes, seed_mapping: MappingFile | None = None) -> DocumentAnonymizeResult:
     from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import ArrayObject
 
     state = AnonymizerState(seed_mapping=seed_mapping)
     reader = PdfReader(BytesIO(content))
     writer = PdfWriter()
 
-    # First pass: extract text from all pages and detect entities
-    all_text = ""
+    # First pass: extract text properly and detect entities
+    all_lines: list[str] = []
     for page in reader.pages:
-        try:
-            if "/Contents" in page:
-                contents = page["/Contents"]
-                if isinstance(contents, ArrayObject):
-                    data = b"".join(item.get_object().get_data() for item in contents if hasattr(item, 'get_object'))
-                else:
-                    data = contents.get_object().get_data()
-                all_text += data.decode("latin-1", errors="replace") + "\n"
-        except Exception:
-            pass
+        text = page.extract_text() or ""
+        if text.strip():
+            all_lines.extend(text.split("\n"))
+        else:
+            # Fallback: raw stream for text-based PDFs where extract_text fails
+            try:
+                if "/Contents" in page:
+                    from pypdf.generic import ArrayObject
 
-    # Detect entities in extracted text
-    for line in all_text.split("\n"):
-        text = line.strip()
-        if text:
-            entity_type = detect_cell_entity_type(text)
+                    contents = page["/Contents"]
+                    if isinstance(contents, ArrayObject):
+                        for item in contents:
+                            obj = item.get_object() if hasattr(item, "get_object") else item
+                            raw = obj.get_data()
+                            # Try utf-8-sig first (common for Chinese PDFs)
+                            decoded = raw.decode("utf-8-sig", errors="")
+                            if decoded.strip():
+                                all_lines.extend(decoded.split("\n"))
+                            else:
+                                decoded = raw.decode("latin-1", errors="")
+                                if decoded.strip():
+                                    all_lines.extend(decoded.split("\n"))
+            except Exception:
+                pass
+
+    for line in all_lines:
+        stripped = line.strip()
+        if stripped:
+            entity_type = detect_cell_entity_type(stripped)
             if entity_type:
-                state.token_for(entity_type, text)
+                state.token_for(entity_type, stripped)
 
-    # Second pass: copy pages with no text modification (pypdf doesn't support in-place text replacement)
-    # The mapping is built above; actual text replacement in PDF requires low-level stream editing
-    # For now, build mapping only (entities are still detected and token-mapped)
+    # Second pass: copy pages (pypdf doesn't support in-place text replacement)
     for page in reader.pages:
         writer.add_page(page)
 
