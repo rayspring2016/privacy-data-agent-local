@@ -285,32 +285,49 @@ def main() -> None:
         .stButton > button {
             width: 100%;
             padding: 0.75rem 1rem !important;
-            font-size: 0.95rem !important;
+            font-size: 0.9375rem !important;
             font-weight: 600 !important;
-            border-radius: 6px !important;
-            transition: background 0.15s, border-color 0.15s, color 0.15s !important;
+            border-radius: 7px !important;
             letter-spacing: 0;
             cursor: pointer !important;
+            transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+        }
+
+        .stButton > button[kind="primary"]:active,
+        .stDownloadButton > button[kind="primary"]:active,
+        [data-testid="stBaseButton-primary"]:active {
+            transform: scale(0.985) !important;
         }
 
         .stButton > button[kind="primary"],
         .stDownloadButton > button[kind="primary"],
-        [data-testid="stBaseButton-primary"],
-        .stDownloadButton > button[type="primary"] {
+        [data-testid="stBaseButton-primary"] {
             background: var(--pda-primary) !important;
             color: #ffffff !important;
             border: 1px solid var(--pda-primary) !important;
-            border-radius: 6px !important;
-            box-shadow: none !important;
+            border-radius: 7px !important;
+            box-shadow: 0 1px 3px rgba(181,91,79,0.15), 0 4px 12px rgba(181,91,79,0.08) !important;
             font-weight: 600 !important;
+        }
+
+        .stButton > button[kind="primary"] p,
+        .stDownloadButton > button[kind="primary"] p,
+        [data-testid="stBaseButton-primary"] p {
+            color: #ffffff !important;
         }
 
         .stButton > button[kind="primary"]:hover,
         .stDownloadButton > button[kind="primary"]:hover,
-        [data-testid="stBaseButton-primary"]:hover,
-        .stDownloadButton > button[type="primary"]:hover {
+        [data-testid="stBaseButton-primary"]:hover {
             background: var(--pda-primary-hover) !important;
             border-color: var(--pda-primary-hover) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(181,91,79,0.2), 0 6px 16px rgba(181,91,79,0.1) !important;
+        }
+
+        .stButton > button[kind="primary"]:hover p,
+        .stDownloadButton > button[kind="primary"]:hover p,
+        [data-testid="stBaseButton-primary"]:hover p {
             color: #ffffff !important;
         }
 
@@ -320,14 +337,20 @@ def main() -> None:
             background: var(--pda-bg-secondary) !important;
             color: var(--pda-text) !important;
             border: 1px solid var(--pda-border-strong) !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
             font-weight: 600 !important;
+        }
+
+        .stButton > button:not([kind="primary"]) p,
+        .stDownloadButton > button:not([kind="primary"]) p,
+        [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]) p {
+            color: var(--pda-text) !important;
         }
 
         .stButton > button:not([kind="primary"]):hover,
         .stDownloadButton > button:not([kind="primary"]):hover,
         [data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover {
-            border-color: var(--pda-border-strong) !important;
+            border-color: var(--pda-text-muted) !important;
         }
 
         .stCaption {
