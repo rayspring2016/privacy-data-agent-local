@@ -12,6 +12,10 @@ from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_ta
 from privacy_data_agent.models import MappingFile
 from privacy_data_agent.restorer import restore_bytes, restore_report
 from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
+from privacy_data_agent.document_anonymizer import (
+    anonymize_docx_bytes,
+    anonymize_pdf_bytes,
+)
 
 
 def read_uploaded_table(filename: str, content: bytes, header_row: int | None = None) -> pd.DataFrame:
@@ -21,7 +25,15 @@ def read_uploaded_table(filename: str, content: bytes, header_row: int | None = 
         return _read_uploaded_csv(buffer, header_row)
     if suffix == ".xlsx":
         return _read_uploaded_excel(buffer, header_row)
-    raise ValueError("Only .csv and .xlsx files are supported.")
+    if suffix == ".docx":
+        from docx import Document
+        doc = Document(BytesIO(content))
+        texts = []
+        for para in doc.paragraphs:
+            if para.text.strip():
+                texts.append(para.text.strip())
+        return pd.DataFrame({"text": texts})
+    raise ValueError("Only .csv, .xlsx, and .docx files are supported.")
 
 
 def _read_uploaded_csv(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
@@ -113,6 +125,20 @@ def anonymize_upload(
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
+    elif suffix == ".docx":
+        docx_result = anonymize_docx_bytes(content, seed_mapping=seed)
+        result_mapping = docx_result.mapping
+        row_count = docx_result.row_count
+        preview_df = pd.DataFrame({"token": [e.token for e in result_mapping.entries]})
+        anonymized_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
+        anonymized_xlsx = docx_result.workbook_bytes  # docx bytes
+    elif suffix == ".pdf":
+        pdf_result = anonymize_pdf_bytes(content, seed_mapping=seed)
+        result_mapping = pdf_result.mapping
+        row_count = pdf_result.row_count
+        preview_df = pd.DataFrame({"token": [e.token for e in result_mapping.entries]})
+        anonymized_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
+        anonymized_xlsx = pdf_result.workbook_bytes  # pdf bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
         result = anonymize_dataframe(df, seed_mapping=seed)

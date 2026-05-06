@@ -21,6 +21,8 @@ def read_input_table(input_path: str | Path, header_row: int | None = None) -> p
         return _read_csv(path, header_row)
     if suffix == ".xlsx":
         return _read_excel(path, header_row)
+    if suffix == ".docx":
+        return _read_docx(path)
     raise ValueError(f"Unsupported input file type: {path.suffix}")
 
 
@@ -52,6 +54,13 @@ def _read_excel(path: Path, header_row: int | None) -> pd.DataFrame:
         ]
         header_row = detect_header_row(raw_rows)
     return pd.read_excel(path, header=max(0, header_row - 1))
+
+
+def _read_docx(path: Path) -> pd.DataFrame:
+    from docx import Document
+    doc = Document(path)
+    texts = [para.text.strip() for para in doc.paragraphs if para.text.strip()]
+    return pd.DataFrame({"text": texts})
 
 
 def build_artifacts(output_dir: Path) -> RunArtifacts:
