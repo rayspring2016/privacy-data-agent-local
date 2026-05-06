@@ -83,11 +83,12 @@ def anonymize_pdf_bytes(content: bytes, seed_mapping: MappingFile | None = None)
                 pass
 
     for line in all_lines:
-        stripped = line.strip()
-        if stripped:
-            entity_type = detect_cell_entity_type(stripped)
-            if entity_type:
-                state.token_for(entity_type, stripped)
+        for token in line.split():
+            stripped = token.strip()
+            if stripped:
+                entity_type = detect_cell_entity_type(stripped)
+                if entity_type:
+                    state.token_for(entity_type, stripped)
 
     # Second pass: copy pages (pypdf doesn't support in-place text replacement)
     for page in reader.pages:
