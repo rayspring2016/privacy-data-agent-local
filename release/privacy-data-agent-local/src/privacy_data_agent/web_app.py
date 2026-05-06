@@ -4,89 +4,90 @@ import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
+VERSION = "1.8.0"
+
 _DARK_THEME_CSS = """<style>
 :root {
-    --pda-primary: #5aa080;
-    --pda-primary-hover: #6db89c;
-    --pda-primary-active: #4a9070;
-    --pda-primary-subtle: rgba(109,184,156,0.08);
-    --pda-text: #e4e4e7;
-    --pda-text-secondary: #7e7e86;
-    --pda-text-muted: #545459;
+    --pda-primary: #D4887B;
+    --pda-primary-hover: #DE9D93;
+    --pda-primary-active: #C67A6E;
+    --pda-primary-subtle: rgba(212,136,123,0.08);
+    --pda-text: #F4F4F5;
+    --pda-text-secondary: #A1A1AA;
+    --pda-text-muted: #71717A;
     --pda-border: rgba(255,255,255,0.06);
-    --pda-border-strong: rgba(255,255,255,0.08);
-    --pda-bg: #181b24;
-    --pda-bg-secondary: #151820;
-    --pda-bg-tertiary: #13151e;
-    --pda-success: #3dd68c;
-    --pda-success-bg: rgba(61,214,140,0.06);
-    --pda-success-border: rgba(61,214,140,0.12);
-    --pda-success-text: #5fe09e;
-    --pda-warning: #f59e0b;
-    --pda-warning-bg: rgba(245,158,11,0.06);
-    --pda-warning-border: rgba(245,158,11,0.12);
-    --pda-warning-text: #fbbf24;
-    --pda-error-bg: rgba(239,68,68,0.06);
-    --pda-error-border: rgba(239,68,68,0.12);
-    --pda-error-text: #f87171;
-    --pda-info-bg: rgba(96,165,250,0.06);
-    --pda-info-border: rgba(96,165,250,0.12);
-    --pda-info-text: #93c5fd;
-    --pda-font: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+    --pda-border-strong: rgba(255,255,255,0.10);
+    --pda-bg: #0C0C0F;
+    --pda-bg-secondary: #18181B;
+    --pda-bg-tertiary: #1F1F23;
+    --pda-success: #3DD68C;
+    --pda-success-bg: rgba(61,214,140,0.08);
+    --pda-success-border: rgba(61,214,140,0.14);
+    --pda-success-text: #5FE09E;
+    --pda-warning: #F59E0B;
+    --pda-warning-bg: rgba(245,158,11,0.08);
+    --pda-warning-border: rgba(245,158,11,0.14);
+    --pda-warning-text: #FBBF24;
+    --pda-error-bg: rgba(239,68,68,0.08);
+    --pda-error-border: rgba(239,68,68,0.14);
+    --pda-error-text: #F87171;
+    --pda-info-bg: rgba(161,161,170,0.06);
+    --pda-info-border: rgba(161,161,170,0.12);
+    --pda-info-text: #D4D4D8;
+    --pda-font: "Outfit", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(109,184,156,0.06) 0%, transparent 60%),
-        #111318 !important;
+        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(212,136,123,0.04) 0%, transparent 60%),
+        #09090B !important;
 }
-code { background: #13151e !important; }
+code { background: #18181B !important; }
 .stButton > button:not([kind="primary"]):hover,
 .stDownloadButton > button:not([kind="primary"]):hover,
-[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #1c1f2a !important; }
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #27272A !important; }
 </style>"""
 
 _LIGHT_THEME_CSS = """<style>
 :root {
-    --pda-primary: #5aa080;
-    --pda-primary-hover: #6db89c;
-    --pda-primary-active: #4a9070;
-    --pda-primary-subtle: #e8f5f0;
-    --pda-text: #1a1a1d;
-    --pda-text-secondary: #5c5c63;
-    --pda-text-muted: #9999a0;
-    --pda-border: #f0f0f3;
-    --pda-border-strong: #e4e4e8;
-    --pda-bg: #ffffff;
-    --pda-bg-secondary: #fafafc;
-    --pda-bg-tertiary: #f5f5f8;
-    --pda-success: #3dd68c;
-    --pda-success-bg: #f0fdf6;
-    --pda-success-border: #bbf7d0;
-    --pda-success-text: #15803d;
-    --pda-warning: #f59e0b;
-    --pda-warning-bg: #fffdf5;
-    --pda-warning-border: #fde68a;
-    --pda-warning-text: #92400e;
-    --pda-error-bg: #fef2f2;
-    --pda-error-border: #fecaca;
-    --pda-error-text: #991b1b;
-    --pda-info-bg: #f0f5fe;
-    --pda-info-border: #bfdbfe;
-    --pda-info-text: #1d4ed8;
-    --pda-font: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+    --pda-primary: #B55B4F;
+    --pda-primary-hover: #C46E63;
+    --pda-primary-active: #9E4E43;
+    --pda-primary-subtle: rgba(181,91,79,0.06);
+    --pda-text: #18181B;
+    --pda-text-secondary: #71717A;
+    --pda-text-muted: #A1A1AA;
+    --pda-border: #E4E4E7;
+    --pda-border-strong: #D4D4D8;
+    --pda-bg: #FAFAFA;
+    --pda-bg-secondary: #F4F4F5;
+    --pda-bg-tertiary: #ECECEE;
+    --pda-success: #2CA15B;
+    --pda-success-bg: rgba(44,161,91,0.06);
+    --pda-success-border: rgba(44,161,91,0.14);
+    --pda-success-text: #166534;
+    --pda-warning: #D97706;
+    --pda-warning-bg: rgba(217,119,6,0.06);
+    --pda-warning-border: rgba(217,119,6,0.14);
+    --pda-warning-text: #92400E;
+    --pda-error-bg: rgba(181,91,79,0.06);
+    --pda-error-border: rgba(181,91,79,0.14);
+    --pda-error-text: #991B1B;
+    --pda-info-bg: rgba(113,113,122,0.05);
+    --pda-info-border: rgba(113,113,122,0.12);
+    --pda-info-text: #3F3F46;
+    --pda-font: "Outfit", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    --pda-mono: "JetBrains Mono", "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
 }
 [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(ellipse 900px 400px at 60% -10%, rgba(90,160,128,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 600px 300px at 10% 80%, rgba(90,160,128,0.04) 0%, transparent 50%),
-        #fafafc !important;
+        radial-gradient(ellipse 800px 300px at 50% 0%, rgba(181,91,79,0.03) 0%, transparent 60%),
+        #FAFAFA !important;
 }
-code { background: #f5f5f8 !important; }
+code { background: #F4F4F5 !important; }
 .stButton > button:not([kind="primary"]):hover,
 .stDownloadButton > button:not([kind="primary"]):hover,
-[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #f0f0f3 !important; }
+[data-testid^="stBaseButton-"]:not([data-testid="stBaseButton-primary"]):hover { background: #ECECEE !important; }
 </style>"""
 
 
@@ -105,6 +106,7 @@ def main() -> None:
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
         header, footer, #MainMenu, [data-testid="stToolbar"], [data-testid="stDecoration"],
         [data-testid="stStatusWidget"], .stDeployButton {
@@ -559,11 +561,18 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    _title_col, _toggle_col = st.columns([8, 1])
+    _title_col, _version_col, _toggle_col = st.columns([7, 1, 1])
     with _title_col:
         st.markdown("# 本地数据脱敏工具")
         st.markdown(
             '<p class="pda-caption">文件只在本机处理，不会上传到服务器，也不会调用大模型。</p>',
+            unsafe_allow_html=True,
+        )
+    with _version_col:
+        st.markdown("<div style='padding-top:1.4rem'></div>", unsafe_allow_html=True)
+        st.markdown(
+            f'<span style="background:var(--pda-bg-tertiary);color:var(--pda-text-secondary);'
+            f'padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:500">v{VERSION}</span>',
             unsafe_allow_html=True,
         )
     with _toggle_col:
