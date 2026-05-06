@@ -765,8 +765,8 @@ def render_anonymize() -> None:
     # ── Upload & config phase ─────────────────────────────────────────────────
     st.markdown("### 第一步：选择需要脱敏的文件")
     source_file = st.file_uploader(
-        "选择 Excel 或 CSV 文件",
-        type=["csv", "xlsx"],
+        "选择 Excel、CSV、DOCX 或 PDF 文件",
+        type=["csv", "xlsx", "docx", "pdf"],
         accept_multiple_files=False,
         key="source_file_uploader",
         label_visibility="collapsed",
