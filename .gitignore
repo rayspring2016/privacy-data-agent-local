@@ -8,3 +8,5 @@ src/*.egg-info/
 .DS_Store
 docs/superpowers/.DS_Store
 runs/
+build/
+release/*.egg-info/
