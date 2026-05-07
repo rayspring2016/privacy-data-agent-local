@@ -23,7 +23,7 @@ def test_anonymize_upload_returns_downloadable_files():
     assert result["stem"] == "hr_sample"
     # ZIP bundle contains the expected files
     zf = zipfile.ZipFile(BytesIO(result["zip_bundle"]))
-    assert set(zf.namelist()) == {"anonymized.xlsx", "mapping.local.json", "README.txt"}
+    assert set(zf.namelist()) == {"hr_sample_anonymized.xlsx", "mapping.local.json", "README.txt"}
     readme = zf.read("README.txt").decode("utf-8")
     assert "hr_sample" in readme
     assert "mapping.local.json" in readme

@@ -83,7 +83,6 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
             "供应商",
             "client",
             "customer",
-            "company",
             "account",
             "vendor",
         ),
@@ -99,8 +98,20 @@ def detect_column_entity_type(column_name: str) -> EntityType | None:
     if _looks_like_person_column(normalized):
         return EntityType.EMPLOYEE
     for entity_type, hints in COLUMN_HINTS:
-        if any(hint.lower() in normalized for hint in hints):
-            return entity_type
+        for hint in hints:
+            hint_lower = hint.lower()
+            if hint_lower in normalized:
+                # 短词（2字以内）要求 hint 在开头，且总长度 ≤ hint×4
+                if len(hint) <= 2:
+                    cleaned = re.sub(r"[\s\d_（）()\.,，。、/\\]", "", normalized)
+                    # hint 必须在开头，且不能比 hint 长太多
+                    if not cleaned.startswith(hint_lower):
+                        continue
+                    if len(cleaned) > len(hint_lower) * 4:
+                        continue
+                    return entity_type
+                else:
+                    return entity_type
     return None
 
 
@@ -132,12 +143,65 @@ def detect_header_row(raw_rows: list[list[str]]) -> int:
     return 1
 
 
+# 百家姓白名单（覆盖 99%+ 的中文姓名）
+# 单姓 + 常见复姓 + 双姓组合（父母姓氏合并）
+SURNAME_SET: set[str] = {
+    # Top 100 单姓
+    "王", "李", "张", "刘", "陈", "杨", "赵", "黄", "周", "吴",
+    "徐", "孙", "胡", "朱", "高", "林", "何", "郭", "马", "罗",
+    "梁", "宋", "郑", "谢", "韩", "唐", "冯", "于", "董", "萧",
+    "程", "曹", "袁", "邓", "许", "傅", "沈", "曾", "彭", "吕",
+    "苏", "卢", "蒋", "蔡", "贾", "丁", "魏", "薛", "叶", "阎",
+    "余", "潘", "杜", "戴", "夏", "钟", "汪", "田", "任", "姜",
+    "范", "方", "石", "姚", "谭", "廖", "邹", "熊", "金", "陆",
+    "郝", "孔", "白", "崔", "康", "毛", "邱", "秦", "江", "史",
+    "顾", "侯", "邵", "孟", "龙", "万", "段", "漕", "钱", "汤",
+    "黎", "易", "常", "武", "乔", "贺", "赖", "龚", "文", "庞",
+    # 复姓
+    "欧阳", "司马", "上官", "诸葛", "慕容", "令狐", "公孙", "拓跋",
+    "宇文", "呼延", "赫连", "澹台", "长孙", "尉迟", "皇甫", "仲孙",
+    # 双姓组合（父母姓氏合并，如陈杨、张李）
+    "陈杨", "张李", "刘王", "王李", "李王", "陈李", "张王", "杨李",
+    "刘陈", "王陈", "杨陈", "李张", "王张", "陈张", "刘李", "王刘",
+}
+
+# AI 工具黑名单（看起来像姓名但实际是工具名的）
+AI_TOOL_BLACKLIST: set[str] = {
+    "文心", "文心一言",  # 百度文心
+    "通义", "通义千问",   # 阿里通义
+    "豆包",              # 字节豆包
+    "智谱", "智谱清言",   # 智谱AI
+    "天工", "天工AI",     # 昆仑万维天工
+    "讯飞", "讯飞星火",   # 讯飞星火
+    "Coze", "扣子",       # 字节Coze
+    "秘塔", "秘塔AI",     # 秘塔AI
+    "Kimi", "KimiChat",  # 月之暗面Kimi
+}
+
+
+def _looks_like_chinese_name(text: str) -> bool:
+    """检查是否像中文姓名（基于百家姓白名单，排除 AI 工具名）"""
+    if len(text) < 2 or len(text) > 4:
+        return False
+    # AI 工具黑名单优先排除
+    if text in AI_TOOL_BLACKLIST:
+        return False
+    # 复姓/双姓优先（2字符）
+    if text[:2] in SURNAME_SET:
+        return True
+    # 单姓（1字符）
+    if text[:1] in SURNAME_SET:
+        return True
+    return False
+
+
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
-# Matches department names like "技术部", "AI 数据部", "产品研发中心".
-# Requires at least one Chinese char before the structural suffix so bare
-# label words like "部门" or "所属部门" don't match (they have no suffix remainder).
+# Matches department names like "技术部", "AI 数据部", "SMB 苏州 1 组", "产品研发中心", "业务线".
+# - Allows spaces and numbers in department name (e.g. "苏州 1 组", "SMB 苏州 1 组")
+# - Long patterns (事业部, 业务线, 小组) must come BEFORE short chars in the alternation
+# - English prefix + space is allowed (e.g. "SMB ")
 DEPARTMENT_RE = re.compile(
-    r"^(?:[A-Za-z]{1,4} ?)?[一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域)$"
+    r"^(?:[A-Za-z]{1,4}[ \t]?)?[一-龥 0-9]{1,25}(?:事业部|业务线|中心|小组|[部组处科室]|大区|区域)$"
 )
 DETECTORS_BY_RE = [
     (ID_NUMBER_RE, EntityType.ID_NUMBER),
@@ -156,5 +220,9 @@ def detect_cell_entity_type(value: object) -> EntityType | None:
         return None
     for pattern, entity_type in DETECTORS_BY_RE:
         if pattern.match(text):
+            # CHINESE_NAME_RE 用百家姓白名单二次验证
+            if entity_type == EntityType.EMPLOYEE and pattern == CHINESE_NAME_RE:
+                if not _looks_like_chinese_name(text):
+                    continue
             return entity_type
     return None

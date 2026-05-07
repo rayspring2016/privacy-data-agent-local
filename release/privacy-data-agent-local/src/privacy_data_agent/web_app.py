@@ -6,7 +6,7 @@ import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
-VERSION = "1.8.2"
+VERSION = "1.8.3"
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -781,7 +781,7 @@ def render_anonymize() -> None:
                 st.download_button(
                     f"脱敏文件（{suffix}）",
                     data=result["anonymized_xlsx"],
-                    file_name=f"anonymized{suffix}",
+                    file_name=f"{result['stem']}_anonymized{suffix}",
                     mime=mime_map.get(suffix, "application/octet-stream"),
                     use_container_width=True,
                     key="download_xlsx",
@@ -798,7 +798,7 @@ def render_anonymize() -> None:
                 st.download_button(
                     "CSV 脱敏数据",
                     data=result["anonymized_csv"],
-                    file_name="anonymized.csv",
+                    file_name=f"{result['stem']}_anonymized.csv",
                     mime="text/csv",
                     use_container_width=True,
                     key="download_csv",

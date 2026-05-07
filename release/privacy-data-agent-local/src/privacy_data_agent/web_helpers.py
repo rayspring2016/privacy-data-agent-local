@@ -85,7 +85,7 @@ def mapping_to_table_csv_bytes(mapping: MappingFile) -> bytes:
 
 
 def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str) -> bytes:
-    anonymized_name = f"anonymized{suffix}"
+    anonymized_name = f"{stem}_anonymized{suffix}"
     if suffix == ".xlsx":
         file_desc = "脱敏后的 Excel 数据文件"
     elif suffix == ".docx":
