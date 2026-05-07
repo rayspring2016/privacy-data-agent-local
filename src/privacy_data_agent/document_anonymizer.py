@@ -85,6 +85,19 @@ _NAME_TITLE_SUFFIXES: frozenset[str] = frozenset({
     "总经", "副总", "董事",
 })
 
+# 内嵌扫描右侧裁剪集：匹配到的名字若以这些字符结尾，说明贪婪吃入了后续内容
+# 包含所有单字百家姓（下一个人名的姓）+ 常见连词/虚词
+_INLINE_RIGHT_TRIM: frozenset[str] = frozenset(
+    {s for s in SURNAME_SET if len(s) == 1}
+    | set("的了和或与及而且也被从让到把如虽然虽")
+)
+
+# 名字列表分隔符（"张三、李四；王五，赵六"格式中的分隔字符）
+_LIST_DELIMITERS: frozenset[str] = frozenset("、，；：。\n\r\t -–—")
+
+# 用于名字列表段落识别的连续汉字模式（2-4字）
+_SEGMENT_RE = re.compile(r"[一-龥]{2,4}")
+
 
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
 DOCUMENT_LABEL_WORDS = frozenset(
@@ -144,32 +157,53 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
         if name not in DOCUMENT_LABEL_WORDS:
             candidates.append((match.start(1), match.end(1), EntityType.EMPLOYEE, name))
 
-    # 内嵌人名扫描：在长段落中逐字扫描，找到百家姓后尝试最短合法名（2字优先→3字→4字）
-    # 只在整段不是一个短词时才需要（短词已由 detect_cell_entity_type 处理）
+    # ── 内嵌人名扫描（百家姓锚点，安全子集）──────────────────────────────
+    # 最长优先（4→3→2）+ 右侧裁剪：遇到下一个姓或连词就缩短
+    # 仅对长段落，且只用不易误报的安全姓氏子集（_INLINE_SINGLE_SURNAMES）
     if len(stripped) > 4:
         i = 0
         while i < len(text):
             if text[i] in _INLINE_SINGLE_SURNAMES:
                 matched = False
-                # 优先最短合法名（2字），减少消费后续汉字的风险
-                for name_len in (2, 3, 4):
+                for name_len in (4, 3, 2):          # 最长优先
                     end = i + name_len
                     if end > len(text):
-                        break
+                        continue
                     name = text[i:end]
-                    if (
-                        _looks_like_chinese_name(name)
+                    # 右侧裁剪：遇到姓氏字或连词则缩短
+                    while len(name) > 2 and name[-1] in _INLINE_RIGHT_TRIM:
+                        name = name[:-1]
+                    if not (
+                        CHINESE_NAME_RE.match(name)     # 全汉字
+                        and _looks_like_chinese_name(name)
                         and name not in DOCUMENT_LABEL_WORDS
-                        and not any(name.endswith(suffix) for suffix in _NAME_TITLE_SUFFIXES)
+                        and not any(name.endswith(s) for s in _NAME_TITLE_SUFFIXES)
                     ):
-                        candidates.append((i, end, EntityType.EMPLOYEE, name))
-                        i = end  # 跳过已识别的名字，避免重叠
-                        matched = True
-                        break
+                        continue
+                    candidates.append((i, i + len(name), EntityType.EMPLOYEE, name))
+                    i += len(name)
+                    matched = True
+                    break
                 if not matched:
                     i += 1
             else:
                 i += 1
+
+    # ── 标点分隔名字列表扫描 ──────────────────────────────────────────────
+    # 识别 "张三、李四；常五盛六" 这类用中文标点分隔的名字列表
+    # 使用完整 SURNAME_SET（含常/盛等），前后都是分隔符时才触发
+    for seg_m in _SEGMENT_RE.finditer(text):
+        seg = seg_m.group(0)
+        start, end = seg_m.start(), seg_m.end()
+        before = text[start - 1] if start > 0 else "\n"
+        after = text[end] if end < len(text) else "\n"
+        if before in _LIST_DELIMITERS and after in _LIST_DELIMITERS:
+            if (
+                _looks_like_chinese_name(seg)
+                and seg not in DOCUMENT_LABEL_WORDS
+                and not any(seg.endswith(s) for s in _NAME_TITLE_SUFFIXES)
+            ):
+                candidates.append((start, end, EntityType.EMPLOYEE, seg))
 
     accepted: list[tuple[int, int, EntityType, str]] = []
     for candidate in sorted(candidates, key=lambda item: (item[0], -(item[1] - item[0]))):
