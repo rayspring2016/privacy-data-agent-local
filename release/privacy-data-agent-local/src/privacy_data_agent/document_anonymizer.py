@@ -8,7 +8,7 @@ import pandas as pd
 from docx import Document
 
 from privacy_data_agent.anonymizer import AnonymizerState
-from privacy_data_agent.detectors import detect_cell_entity_type
+from privacy_data_agent.detectors import detect_cell_entity_type, SURNAME_SET, _looks_like_chinese_name
 from privacy_data_agent.models import EntityType, MappingFile
 
 
@@ -57,6 +57,33 @@ LABELED_CHINESE_NAME_RE = re.compile(
     r"(?:姓名|员工|人员|负责人|联系人|对接人|客户经理|顾问|name|employee|owner|manager)(?:\s*[:：=]\s*|\s+)([一-龥]{2,4})",
     re.IGNORECASE,
 )
+
+# 内嵌人名扫描器：用百家姓单字作锚点，在段落正文中识别 姓+名（2-4字）
+# 只用单字姓，避免复姓/双姓组合被误拆
+_SINGLE_SURNAMES = sorted(
+    (s for s in SURNAME_SET if len(s) == 1),
+    key=lambda x: -len(x),  # 长的优先（未来兼容，当前均1字）
+)
+
+# 内嵌扫描时排除高频普通词（避免 文件/方法/高兴/严格 等被当作姓触发误匹配）
+_INLINE_ANCHOR_EXCLUDE = frozenset({
+    "文", "方", "明", "白", "武", "易", "常", "余", "万",
+    "全", "司", "步", "习", "关", "连", "强", "石", "金",
+    "高", "向", "温", "安", "路", "盛", "谷",  # 形容词/名词/介词
+    "严", "纪", "党",  # 常见词：严格/纪要/党委（加入避免大量误报）
+})
+_INLINE_SINGLE_SURNAMES: frozenset[str] = frozenset(
+    s for s in _SINGLE_SURNAMES if s not in _INLINE_ANCHOR_EXCLUDE
+)
+
+# 常见职务/头衔后缀：当一个"看起来像名字"的串以这些结尾时，跳过（如 张总监、董事长）
+_NAME_TITLE_SUFFIXES: frozenset[str] = frozenset({
+    "总监", "经理", "主任", "主席", "总裁", "总理", "书记", "委员",
+    "处长", "科长", "队长", "组长", "班长", "部长", "局长", "院长",
+    "所长", "校长", "厂长", "站长", "理事", "事长", "事会",
+    "顾问", "秘书", "助理", "专员", "工程", "设计", "分析",
+    "总经", "副总", "董事",
+})
 
 
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
@@ -116,6 +143,33 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
         name = match.group(1)
         if name not in DOCUMENT_LABEL_WORDS:
             candidates.append((match.start(1), match.end(1), EntityType.EMPLOYEE, name))
+
+    # 内嵌人名扫描：在长段落中逐字扫描，找到百家姓后尝试最短合法名（2字优先→3字→4字）
+    # 只在整段不是一个短词时才需要（短词已由 detect_cell_entity_type 处理）
+    if len(stripped) > 4:
+        i = 0
+        while i < len(text):
+            if text[i] in _INLINE_SINGLE_SURNAMES:
+                matched = False
+                # 优先最短合法名（2字），减少消费后续汉字的风险
+                for name_len in (2, 3, 4):
+                    end = i + name_len
+                    if end > len(text):
+                        break
+                    name = text[i:end]
+                    if (
+                        _looks_like_chinese_name(name)
+                        and name not in DOCUMENT_LABEL_WORDS
+                        and not any(name.endswith(suffix) for suffix in _NAME_TITLE_SUFFIXES)
+                    ):
+                        candidates.append((i, end, EntityType.EMPLOYEE, name))
+                        i = end  # 跳过已识别的名字，避免重叠
+                        matched = True
+                        break
+                if not matched:
+                    i += 1
+            else:
+                i += 1
 
     accepted: list[tuple[int, int, EntityType, str]] = []
     for candidate in sorted(candidates, key=lambda item: (item[0], -(item[1] - item[0]))):
