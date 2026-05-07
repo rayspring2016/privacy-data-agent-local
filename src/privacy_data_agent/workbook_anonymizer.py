@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from io import BytesIO
 from pathlib import Path
 
@@ -8,8 +9,40 @@ from openpyxl import load_workbook
 from pydantic import BaseModel, ConfigDict
 
 from privacy_data_agent.anonymizer import AnonymizerState
-from privacy_data_agent.detectors import detect_cell_entity_type, detect_column_entity_type, detect_header_row
-from privacy_data_agent.models import MappingFile
+from privacy_data_agent.detectors import (
+    detect_cell_entity_type,
+    detect_column_entity_type,
+    detect_header_row,
+    CHINESE_NAME_RE,
+    _looks_like_chinese_name,
+)
+from privacy_data_agent.models import EntityType, MappingFile
+
+# Delimiters used to split multi-name cells in person columns
+_NAME_SPLIT_RE = re.compile(r"[、，；,;/|]+")
+
+# Cells with ≥ this many name segments get SURNAME_SET validation (防止大列表误报)
+_MULTI_NAME_SURNAME_CHECK_THRESHOLD = 5
+
+
+def _split_person_cell(text: str) -> list[str]:
+    """Return non-empty segments after splitting on name delimiters."""
+    return [s.strip() for s in _NAME_SPLIT_RE.split(text) if s.strip()]
+
+
+def _anonymize_person_segment(
+    segment: str, validate_surname: bool, state: AnonymizerState
+) -> str | None:
+    """Return a token for segment, or None if it should be kept unchanged.
+
+    Always requires 2-4 Chinese characters. When validate_surname is True,
+    also requires _looks_like_chinese_name() (surname check).
+    """
+    if not CHINESE_NAME_RE.match(segment):
+        return None
+    if validate_surname and not _looks_like_chinese_name(segment):
+        return None
+    return state.token_for(EntityType.EMPLOYEE, segment)
 
 
 class WorkbookAnonymizeResult(BaseModel):
@@ -46,10 +79,24 @@ def anonymize_xlsx_bytes(
                 if not text:
                     continue
                 column_type = detect_column_entity_type(header_by_column.get(cell.column, ""))
-                entity_type = column_type or detect_cell_entity_type(text)
-                if entity_type is None:
-                    continue
-                cell.value = state.token_for(entity_type, text)
+                if column_type == EntityType.EMPLOYEE:
+                    segments = _split_person_cell(text)
+                    if len(segments) <= 1:
+                        # Single-name cell: one token, no surname check
+                        cell.value = state.token_for(EntityType.EMPLOYEE, text)
+                    else:
+                        validate = len(segments) >= _MULTI_NAME_SURNAME_CHECK_THRESHOLD
+                        result = text
+                        for seg in segments:
+                            token = _anonymize_person_segment(seg, validate_surname=validate, state=state)
+                            if token is not None:
+                                result = result.replace(seg, token, 1)
+                        cell.value = result
+                else:
+                    entity_type = column_type or detect_cell_entity_type(text)
+                    if entity_type is None:
+                        continue
+                    cell.value = state.token_for(entity_type, text)
 
     output = BytesIO()
     workbook.save(output)
