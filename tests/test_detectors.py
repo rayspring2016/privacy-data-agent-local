@@ -44,3 +44,53 @@ def test_detect_header_row_title_first_row():
 
 def test_detect_header_row_fewer_than_two_rows():
     assert detect_header_row([["员工姓名"]]) == 1
+
+
+def test_n_level_org_and_dept_detected_as_department():
+    """'一级组织' / '二级部门' etc. must map to EntityType.DEPARTMENT."""
+    cases = [
+        "一级组织", "二级组织", "三级组织", "四级组织",
+        "一级部门", "二级部门", "三级部门", "四级部门",
+    ]
+    for col in cases:
+        result = detect_column_entity_type(col)
+        assert result == EntityType.DEPARTMENT, f"{col!r} → {result}, expected DEPARTMENT"
+
+
+def test_new_surnames_in_surname_set():
+    """v1.9.0: ~80 new entries spot-checked."""
+    from privacy_data_agent.detectors import SURNAME_SET
+    new_singles = [
+        "卜", "刁", "华", "阳", "农", "鲍", "奉", "昌", "干", "牟",
+        "岑", "芮", "荣", "闻", "阮", "敖", "衡", "宓", "匡", "米",
+        "吉", "印", "禹", "仰", "薄", "沐", "晁", "桂", "沃", "展",
+        "勾", "佟", "伏", "伊", "权", "隆", "扈", "籍", "诸", "茅",
+        "栗", "咸", "辜", "满", "花", "靖", "相", "帅", "平", "班",
+        "邴", "嵇", "边", "辛", "濮", "浦", "庄", "郗", "祁",
+        "公", "富", "竺", "终", "邰", "戎", "殳", "哈", "麻", "尚",
+        "甄", "冼", "危", "宿", "折", "喜", "别",
+        "阙", "晋", "强", "居", "养", "逄", "隗", "菅", "国", "雍",
+    ]
+    new_compound = ["东方", "南宫", "西门", "百里", "端木", "夏侯", "鲜于", "司徒", "司空", "万俟"]
+    missing = [s for s in new_singles + new_compound if s not in SURNAME_SET]
+    assert missing == [], f"Missing from SURNAME_SET: {missing}"
+
+
+def test_new_surnames_detected_as_chinese_names():
+    """_looks_like_chinese_name accepts names with new surnames."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    assert _looks_like_chinese_name("卜文") is True
+    assert _looks_like_chinese_name("芮嘉") is True
+    assert _looks_like_chinese_name("阮华") is True
+    assert _looks_like_chinese_name("甄磊") is True
+    assert _looks_like_chinese_name("雍辉") is True
+    assert _looks_like_chinese_name("奉子文") is True
+    assert _looks_like_chinese_name("东方彤") is True
+    assert _looks_like_chinese_name("夏侯涛") is True
+
+
+def test_surname_set_no_regression():
+    """Original surnames unchanged after expansion."""
+    from privacy_data_agent.detectors import SURNAME_SET
+    for s in ["王", "李", "张", "欧阳", "司马", "陈杨", "童", "仲", "左"]:
+        assert s in SURNAME_SET, f"Regression: {s!r} removed"
