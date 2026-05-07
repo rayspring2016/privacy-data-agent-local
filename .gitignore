@@ -10,3 +10,4 @@ docs/superpowers/.DS_Store
 runs/
 build/
 release/*.egg-info/
+release/*.zip

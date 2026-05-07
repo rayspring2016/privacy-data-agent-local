@@ -94,3 +94,33 @@ def test_surname_set_no_regression():
     from privacy_data_agent.detectors import SURNAME_SET
     for s in ["王", "李", "张", "欧阳", "司马", "陈杨", "童", "仲", "左"]:
         assert s in SURNAME_SET, f"Regression: {s!r} removed"
+
+
+# ── v1.10.0: SALARY entity type ──────────────────────────────────────────────
+
+def test_salary_column_types():
+    """Salary-related column names should detect as SALARY."""
+    cases = [
+        "工资", "薪资", "薪酬", "底薪", "基本工资", "应发工资", "实发工资",
+        "税前工资", "税后工资", "奖金", "年终奖", "绩效工资", "绩效奖金",
+        "提成", "佣金", "补贴", "餐补", "交通补贴", "通讯补贴", "住房补贴",
+        "高温补贴", "岗位补贴", "其他补贴", "五险一金", "社保", "公积金",
+        "社保公积金", "人力成本", "年薪", "月薪", "日薪", "报酬", "收入",
+        "salary", "wage", "bonus", "compensation", "pay",
+    ]
+    for col in cases:
+        result = detect_column_entity_type(col)
+        assert result == EntityType.SALARY, f"{col!r} → {result}, expected SALARY"
+
+
+def test_salary_column_non_salary_filtered():
+    """Non-salary columns should NOT detect as SALARY."""
+    non_salary = [
+        "销售总额", "订单金额", "预算金额",  # 这些是金额但不是个人薪酬
+        "绩效评分", "绩效等级",  # 绩效等级/评分是考核结果，不是金额
+        "绩效考核", "绩效评估", "考核评分", "考核等级",
+    ]
+    for col in non_salary:
+        result = detect_column_entity_type(col)
+        # 只要不是SALARY就行（可能是CUSTOMER/DEPARTMENT/EMPLOYEE/None）
+        assert result != EntityType.SALARY, f"{col!r} should NOT be SALARY, got {result}"

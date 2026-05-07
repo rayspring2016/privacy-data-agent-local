@@ -12,6 +12,8 @@ LICENSE_PLATE_RE = re.compile(r"^[京津沪渝冀豫云辽黑湘皖鲁新苏浙�
 # Pure-digit IDs (e.g. 001234) are too ambiguous without column context; use column hints instead.
 EMPLOYEE_ID_RE = re.compile(r"^[A-Za-z]{1,3}\d{4,10}$")
 NON_PERSON_REN_COLUMNS = ("人数", "人均", "人次", "人工", "人效", "人天")
+# 绩效考核/评分列包含"绩效"但不是薪酬数字（绩效工资才是）
+NON_SALARY_COLUMNS = ("评分", "等级", "考核", "评估", "评价", "档次")
 
 COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     (
@@ -91,6 +93,49 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     ),
     (EntityType.PHONE, ("手机号", "电话", "phone", "mobile")),
     (EntityType.EMAIL, ("邮箱", "email", "e-mail")),
+    (
+        EntityType.SALARY,
+        (
+            "工资",
+            "薪资",
+            "薪酬",
+            "底薪",
+            "基本工资",
+            "应发工资",
+            "实发工资",
+            "税前工资",
+            "税后工资",
+            "奖金",
+            "年终奖",
+            "绩效工资",
+            "绩效奖金",
+            "提成",
+            "佣金",
+            "补贴",
+            "餐补",
+            "交通补贴",
+            "通讯补贴",
+            "住房补贴",
+            "高温补贴",
+            "岗位补贴",
+            "其他补贴",
+            "五险一金",
+            "社保",
+            "公积金",
+            "社保公积金",
+            "人力成本",
+            "年薪",
+            "月薪",
+            "日薪",
+            "报酬",
+            "收入",
+            "salary",
+            "wage",
+            "bonus",
+            "compensation",
+            "pay",
+        ),
+    ),
     (EntityType.LICENSE_PLATE, ("车牌", "车牌号", "车牌号码", "license_plate", "plate", "car_plate", "vehicle_plate")),
 )
 
@@ -99,6 +144,15 @@ def detect_column_entity_type(column_name: str) -> EntityType | None:
     normalized = column_name.strip().lower()
     if _looks_like_person_column(normalized):
         return EntityType.EMPLOYEE
+    # SALARY列排除：绩效评分/等级/考核（不是薪酬数字，是考核结果）
+    if any(excluded in normalized for excluded in NON_SALARY_COLUMNS):
+        # 硬编码：绩效+评分/等级/考核 → 不是SALARY
+        for entity_type, hints in COLUMN_HINTS:
+            for hint in hints:
+                if hint.lower() in normalized:
+                    if entity_type == EntityType.SALARY:
+                        return None
+                    return entity_type
     for entity_type, hints in COLUMN_HINTS:
         for hint in hints:
             hint_lower = hint.lower()

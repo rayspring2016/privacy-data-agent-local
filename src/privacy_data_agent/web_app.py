@@ -6,7 +6,7 @@ import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
-VERSION = "1.9.0"
+VERSION = "1.11.0"
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -641,18 +641,25 @@ def _stage_html(s1: str, s2: str, s3: str, s4: str, label3: str = "处理中") -
 def render_anonymize() -> None:
     for key, default in [
         ("anonymize_file", None),
+        ("anonymize_files", []),       # v1.11.0: multi-file batch list
         ("seed_file", None),
         ("header_mode", "自动检测"),
         ("custom_header_row", 1),
         ("processing", False),
         ("anonymize_result", None),
+        ("anonymize_batch_result", None),  # v1.11.0: batch results
+        ("encryption_key", None),  # v1.10.0: Fernet key for mapping encryption
     ]:
         if key not in st.session_state:
             st.session_state[key] = default
 
-    has_file = st.session_state.anonymize_file is not None
+    has_single = st.session_state.anonymize_file is not None
+    has_multi = bool(st.session_state.anonymize_files)
+    has_file = has_single or has_multi
     proc = st.session_state.processing
-    has_result = st.session_state.anonymize_result is not None
+    has_single_result = st.session_state.anonymize_result is not None
+    has_batch_result = st.session_state.anonymize_batch_result is not None
+    has_result = has_single_result or has_batch_result
 
     # Stage indicator — driven by result presence, not processing flag
     s1 = "completed" if (has_file or proc or has_result) else "active"
@@ -676,16 +683,32 @@ def render_anonymize() -> None:
                 else:
                     _header_row = st.session_state.get("custom_header_row", 1)
 
-                result = anonymize_upload(
-                    st.session_state.anonymize_file.name,
-                    st.session_state.anonymize_file.getvalue(),
-                    seed_mapping_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
-                    seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
-                    header_row=_header_row,
-                )
-            st.session_state.anonymize_result = result
-            st.session_state.processing = False
-            st.rerun()
+                if has_multi:
+                    from privacy_data_agent.web_helpers import anonymize_batch
+
+                    files = [(f.name, f.getvalue()) for f in st.session_state.anonymize_files]
+                    batch_result = anonymize_batch(
+                        files,
+                        first_seed_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
+                        first_seed_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
+                        header_row=_header_row,
+                        encryption_key=st.session_state.encryption_key,
+                    )
+                    st.session_state.anonymize_batch_result = batch_result
+                    st.session_state.processing = False
+                    st.rerun()
+                else:
+                    result = anonymize_upload(
+                        st.session_state.anonymize_file.name,
+                        st.session_state.anonymize_file.getvalue(),
+                        seed_mapping_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
+                        seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
+                        header_row=_header_row,
+                        encryption_key=st.session_state.encryption_key,
+                    )
+                    st.session_state.anonymize_result = result
+                    st.session_state.processing = False
+                    st.rerun()
         except Exception as exc:
             st.session_state.processing = False
             st.error(f"处理失败：{str(exc)}")
@@ -695,111 +718,197 @@ def render_anonymize() -> None:
 
     # ── Result phase ──────────────────────────────────────────────────────────
     if has_result:
-        result = st.session_state.anonymize_result
-        new_count = result["new_entity_count"]
-        total_count = result["entity_count"]
-
-        suffix = result.get("file_suffix", ".xlsx")
-        if suffix in (".docx", ".pdf"):
-            unit = "个"
-            row_label = "检出实体"
-            format_name = "Word 文档" if suffix == ".docx" else "PDF 文档"
-        else:
-            unit = "行"
-            row_label = "数据行数"
-            format_name = "Excel 数据文件"
-
-        st.success(f"脱敏完成：{result['row_count']} {unit}，生成 {new_count} 个匹配项。")
-        st.markdown(
-            f"""
-            <div class="pda-stats">
-                <p class="pda-stats-title">处理统计</p>
-                <div class="pda-stats-grid">
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{result['row_count']}</p>
-                        <p class="pda-stat-label">{row_label}</p>
-                    </div>
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{new_count}</p>
-                        <p class="pda-stat-label">新增实体</p>
-                    </div>
-                    <div class="pda-stat">
-                        <p class="pda-stat-num">{total_count}</p>
-                        <p class="pda-stat-label">总计实体</p>
+        # v1.11.0: batch result display
+        if has_batch_result:
+            batch = st.session_state.anonymize_batch_result
+            st.success(
+                f"批量脱敏完成：处理 {batch['files_processed']} 个文件，"
+                f"共 {batch['total_rows']} 行，新增 {batch['total_new_entities']} 个实体。"
+            )
+            st.markdown(
+                f"""
+                <div class="pda-stats">
+                    <p class="pda-stats-title">批量处理统计</p>
+                    <div class="pda-stats-grid">
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{batch['files_processed']}</p>
+                            <p class="pda-stat-label">处理文件</p>
+                        </div>
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{batch['total_rows']}</p>
+                            <p class="pda-stat-label">数据行数</p>
+                        </div>
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{batch['total_new_entities']}</p>
+                            <p class="pda-stat-label">新增实体</p>
+                        </div>
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{batch['total_entities']}</p>
+                            <p class="pda-stat-label">累计实体</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.divider()
-        st.markdown("### 下载结果")
+                """,
+                unsafe_allow_html=True,
+            )
+            st.divider()
+            st.markdown("### 下载结果")
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.download_button(
+                    "⬇️ 下载全部（打包ZIP）",
+                    data=batch["consolidated_zip"],
+                    file_name="批量脱敏数据包.zip",
+                    mime="application/zip",
+                    use_container_width=True,
+                    type="primary",
+                    key="download_batch_zip",
+                )
+            with col2:
+                st.button(
+                    "继续添加文件",
+                    use_container_width=True,
+                    on_click=lambda: st.session_state.update({
+                        "processing": False,
+                        "anonymize_file": None,
+                        "anonymize_files": [],
+                        "seed_file": None,
+                        "header_mode": "自动检测",
+                        "custom_header_row": 1,
+                        "anonymize_batch_result": None,
+                        "anonymize_result": None,
+                    }),
+                    key="batch_continue",
+                )
+            with st.expander("展开查看各文件结果", expanded=False):
+                for i, r in enumerate(batch["results"]):
+                    suffix = r.get("suffix", ".xlsx")
+                    with st.container():
+                        st.markdown(f"**文件 {i+1}: {r['stem']}{suffix}**")
+                        cols = st.columns(3)
+                        cols[0].metric("数据行数", r["row_count"])
+                        cols[1].metric("新增实体", r["new_entity_count"])
+                        cols[2].metric("累计实体", r["entity_count"])
+                        st.download_button(
+                            f"下载 {r['stem']}{suffix}",
+                            data=r["anonymized_bytes"],
+                            file_name=f"{r['stem']}_anonymized{suffix}",
+                            mime="application/octet-stream",
+                            use_container_width=True,
+                            key=f"download_batch_file_{i}",
+                        )
+                        st.divider()
+        else:
+            # Single-file result (existing code)
+            result = st.session_state.anonymize_result
+            new_count = result["new_entity_count"]
+            total_count = result["entity_count"]
 
-        zip_name = f"{result['stem']}_脱敏包.zip"
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button(
-                "⬇️ 一键打包下载（推荐）",
-                data=result["zip_bundle"],
-                file_name=zip_name,
-                mime="application/zip",
-                use_container_width=True,
-                type="primary",
-                key="download_zip",
-            )
-        with col2:
-            st.button(
-                "处理其他文件",
-                use_container_width=True,
-                on_click=lambda: st.session_state.update({
-                    "processing": False,
-                    "anonymize_file": None,
-                    "seed_file": None,
-                    "header_mode": "自动检测",
-                    "custom_header_row": 1,
-                    "anonymize_result": None,
-                }),
-                key="process_another",
-            )
-        st.markdown(
-            f"""
-            <p class="pda-download-caption">
-                ZIP 包含脱敏 {format_name} + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
-            </p>
-            """,
-            unsafe_allow_html=True,
-        )
-        with st.expander("单独下载各文件", expanded=False):
             suffix = result.get("file_suffix", ".xlsx")
-            mime_map = {
-                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ".pdf": "application/pdf",
-            }
+            if suffix in (".docx", ".pdf"):
+                unit = "个"
+                row_label = "检出实体"
+                format_name = "Word 文档" if suffix == ".docx" else "PDF 文档"
+            else:
+                unit = "行"
+                row_label = "数据行数"
+                format_name = "Excel 数据文件"
+
+            st.success(f"脱敏完成：{result['row_count']} {unit}，生成 {new_count} 个匹配项。")
+            st.markdown(
+                f"""
+                <div class="pda-stats">
+                    <p class="pda-stats-title">处理统计</p>
+                    <div class="pda-stats-grid">
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{result['row_count']}</p>
+                            <p class="pda-stat-label">{row_label}</p>
+                        </div>
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{new_count}</p>
+                            <p class="pda-stat-label">新增实体</p>
+                        </div>
+                        <div class="pda-stat">
+                            <p class="pda-stat-num">{total_count}</p>
+                            <p class="pda-stat-label">总计实体</p>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.divider()
+            st.markdown("### 下载结果")
+
+            zip_name = f"{result['stem']}_脱敏包.zip"
             col1, col2 = st.columns(2)
             with col1:
                 st.download_button(
-                    f"脱敏文件（{suffix}）",
-                    data=result["anonymized_xlsx"],
-                    file_name=f"{result['stem']}_anonymized{suffix}",
-                    mime=mime_map.get(suffix, "application/octet-stream"),
+                    "⬇️ 一键打包下载（推荐）",
+                    data=result["zip_bundle"],
+                    file_name=zip_name,
+                    mime="application/zip",
                     use_container_width=True,
-                    key="download_xlsx",
-                )
-                st.download_button(
-                    "匹配文件 JSON",
-                    data=str(result["mapping_json"]).encode("utf-8"),
-                    file_name="mapping.local.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="download_json",
+                    type="primary",
+                    key="download_zip",
                 )
             with col2:
-                st.download_button(
-                    "CSV 脱敏数据",
-                    data=result["anonymized_csv"],
-                    file_name=f"{result['stem']}_anonymized.csv",
-                    mime="text/csv",
+                st.button(
+                    "处理其他文件",
+                    use_container_width=True,
+                    on_click=lambda: st.session_state.update({
+                        "processing": False,
+                        "anonymize_file": None,
+                        "seed_file": None,
+                        "header_mode": "自动检测",
+                        "custom_header_row": 1,
+                        "anonymize_result": None,
+                    }),
+                    key="process_another",
+                )
+            st.markdown(
+                f"""
+                <p class="pda-download-caption">
+                    ZIP 包含脱敏 {format_name} + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
+                </p>
+                """,
+                unsafe_allow_html=True,
+            )
+            with st.expander("单独下载各文件", expanded=False):
+                suffix = result.get("file_suffix", ".xlsx")
+                mime_map = {
+                    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ".pdf": "application/pdf",
+                }
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button(
+                        f"脱敏文件（{suffix}）",
+                        data=result["anonymized_xlsx"],
+                        file_name=f"{result['stem']}_anonymized{suffix}",
+                        mime=mime_map.get(suffix, "application/octet-stream"),
+                        use_container_width=True,
+                        key="download_xlsx",
+                    )
+                    st.download_button(
+                        "匹配文件 JSON（加密）" if st.session_state.encryption_key else "匹配文件 JSON",
+                        data=(
+                            result["encrypted_mapping_json"]
+                            if result.get("encrypted_mapping_json") is not None
+                            else str(result["mapping_json"]).encode("utf-8")
+                        ),
+                        file_name="mapping.local.json",
+                        mime="application/json",
+                        use_container_width=True,
+                        key="download_json",
+                    )
+                with col2:
+                    st.download_button(
+                        "CSV 脱敏数据",
+                        data=result["anonymized_csv"],
+                        file_name=f"{result['stem']}_anonymized.csv",
+                        mime="text/csv",
                     use_container_width=True,
                     key="download_csv",
                 )
@@ -811,13 +920,32 @@ def render_anonymize() -> None:
                     use_container_width=True,
                     key="download_mapping_csv",
                 )
-        st.warning("匹配文件和匹配表包含原始敏感信息，只能保存在本地。")
+        st.warning(
+                "匹配文件和匹配表包含原始敏感信息，只能保存在本地。"
+                + (" 匹配文件 JSON 已加密。" if st.session_state.encryption_key else "")
+            )
         return
 
     # ── Upload & config phase ─────────────────────────────────────────────────
     st.markdown("### 第一步：选择需要脱敏的文件")
+    st.caption("支持单文件或多文件批量处理，多文件将自动累积匹配结果。")
+
+    # v1.11.0: multi-file batch uploader
+    multi_files = st.file_uploader(
+        "拖拽或点击上传多个文件（Excel、CSV、DOCX、PDF）",
+        type=["csv", "xlsx", "docx", "pdf"],
+        accept_multiple_files=True,
+        key="multi_file_uploader",
+        label_visibility="collapsed",
+    )
+    if multi_files:
+        st.session_state.anonymize_files = list(multi_files)
+        st.success(f"已选择 {len(multi_files)} 个文件：")
+        for f in multi_files:
+            st.write(f"  • {f.name} ({f.size / 1024:.1f} KB)")
+
     source_file = st.file_uploader(
-        "选择 Excel、CSV、DOCX 或 PDF 文件",
+        "或选择单个文件（Excel、CSV、DOCX 或 PDF 文件）",
         type=["csv", "xlsx", "docx", "pdf"],
         accept_multiple_files=False,
         key="source_file_uploader",
@@ -836,7 +964,7 @@ def render_anonymize() -> None:
             unsafe_allow_html=True,
         )
 
-    if source_file is not None:
+    if has_multi or source_file is not None:
         st.markdown("### 第二步：配置处理选项（可选）")
 
         with st.expander("同一批次追加文件？上传已有匹配文件（可选）", expanded=False):
@@ -854,9 +982,32 @@ def render_anonymize() -> None:
             if seed_file is not None:
                 st.session_state.seed_file = seed_file
 
-        if source_file is not None:
-            source_suffix = Path(source_file.name).suffix.lower()
-            if source_suffix in (".xlsx", ".csv"):
+        # ── v1.10.0: 映射文件加密配置 ────────────────────────────────────────
+        with st.expander("🔐 加密匹配文件（可选）", expanded=False):
+            st.markdown(
+                "<p>如需对匹配文件进行加密，请开启此选项。加密后下载的 mapping.local.json 将包含加密后的敏感信息，且在反脱敏时需要输入相同密钥才能解密。</p>",
+                unsafe_allow_html=True,
+            )
+            col_gen, col_key = st.columns([1, 2])
+            with col_gen:
+                if st.button("生成加密密钥", use_container_width=True, key="generate_key_btn"):
+                    from cryptography.fernet import Fernet
+
+                    st.session_state.encryption_key = Fernet.generate_key().decode("utf-8")
+                    st.rerun()
+            with col_key:
+                if st.session_state.encryption_key:
+                    st.text_input(
+                        "当前加密密钥（请妥善保存）",
+                        value=st.session_state.encryption_key,
+                        disabled=True,
+                        key="key_display",
+                    )
+                    st.caption("密钥会在当前会话中保持。关闭页面后将丢失，请务必下载后妥善保管。")
+
+        if source_file is not None or has_multi:
+            source_suffix = Path(source_file.name).suffix.lower() if source_file else ""
+            if source_suffix in (".xlsx", ".csv") or has_multi:
                 with st.expander("表格格式配置（可选）", expanded=False):
                     st.markdown(
                         '<p>如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
@@ -896,10 +1047,12 @@ def render_anonymize() -> None:
         if reset_btn:
             st.session_state.update({
                 "anonymize_file": None,
+                "anonymize_files": [],
                 "seed_file": None,
                 "header_mode": "自动检测",
                 "custom_header_row": 1,
                 "anonymize_result": None,
+                "anonymize_batch_result": None,
             })
             st.rerun()
 
@@ -924,6 +1077,7 @@ def render_restore() -> None:
         ("restore_mapping", None),
         ("restore_processing", False),
         ("restore_result", None),
+        ("restore_decryption_key", ""),  # v1.10.0: key for encrypted mapping files
     ]:
         if key not in st.session_state:
             st.session_state[key] = default
@@ -950,6 +1104,7 @@ def render_restore() -> None:
                     report_filename=st.session_state.restore_report.name,
                     mapping_filename=st.session_state.restore_mapping.name,
                     mapping_content=st.session_state.restore_mapping.getvalue(),
+                    decryption_key=st.session_state.get("restore_decryption_key") or None,
                 )
             st.session_state.restore_result = result
             st.session_state.restore_processing = False
@@ -1042,6 +1197,15 @@ def render_restore() -> None:
             """,
             unsafe_allow_html=True,
         )
+
+    # v1.10.0: 解密密钥输入（加密匹配文件需要）
+    restore_key_input = st.text_input(
+        "如匹配文件已加密，请输入解密密钥（明文 JSON/CSV 文件无需输入）",
+        value=st.session_state.get("restore_decryption_key", ""),
+        placeholder="输入 Fernet 加密密钥...",
+        key="restore_decryption_key_input",
+    )
+    st.session_state.restore_decryption_key = restore_key_input
 
     st.divider()
 
