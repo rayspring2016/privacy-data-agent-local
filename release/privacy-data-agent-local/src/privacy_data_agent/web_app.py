@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
-VERSION = "1.8.0"
+VERSION = "1.8.2"
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -697,7 +699,17 @@ def render_anonymize() -> None:
         new_count = result["new_entity_count"]
         total_count = result["entity_count"]
 
-        st.success(f"脱敏完成：{result['row_count']} 行，生成 {new_count} 个匹配项。")
+        suffix = result.get("file_suffix", ".xlsx")
+        if suffix in (".docx", ".pdf"):
+            unit = "个"
+            row_label = "检出实体"
+            format_name = "Word 文档" if suffix == ".docx" else "PDF 文档"
+        else:
+            unit = "行"
+            row_label = "数据行数"
+            format_name = "Excel 数据文件"
+
+        st.success(f"脱敏完成：{result['row_count']} {unit}，生成 {new_count} 个匹配项。")
         st.markdown(
             f"""
             <div class="pda-stats">
@@ -705,7 +717,7 @@ def render_anonymize() -> None:
                 <div class="pda-stats-grid">
                     <div class="pda-stat">
                         <p class="pda-stat-num">{result['row_count']}</p>
-                        <p class="pda-stat-label">数据行数</p>
+                        <p class="pda-stat-label">{row_label}</p>
                     </div>
                     <div class="pda-stat">
                         <p class="pda-stat-num">{new_count}</p>
@@ -750,9 +762,9 @@ def render_anonymize() -> None:
                 key="process_another",
             )
         st.markdown(
-            """
+            f"""
             <p class="pda-download-caption">
-                ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
+                ZIP 包含脱敏 {format_name} + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。
             </p>
             """,
             unsafe_allow_html=True,
@@ -842,11 +854,14 @@ def render_anonymize() -> None:
             if seed_file is not None:
                 st.session_state.seed_file = seed_file
 
-        with st.expander("表格格式配置（可选）", expanded=False):
-            st.markdown(
-                '<p>如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
-                unsafe_allow_html=True,
-            )
+        if source_file is not None:
+            source_suffix = Path(source_file.name).suffix.lower()
+            if source_suffix in (".xlsx", ".csv"):
+                with st.expander("表格格式配置（可选）", expanded=False):
+                    st.markdown(
+                        '<p>如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
+                        unsafe_allow_html=True,
+                    )
             header_mode = st.radio(
                 "表头所在行",
                 ["自动检测", "第一行", "第二行", "自定义行号"],

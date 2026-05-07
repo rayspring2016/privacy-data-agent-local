@@ -32,7 +32,24 @@ DOCUMENT_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], EntityType], ...] = (
     ),
     (re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{1,3}\d{4,10}(?![A-Za-z0-9])"), EntityType.EMPLOYEE_ID),
     (
-        re.compile(r"(?<![一-龥A-Za-z0-9])[一-龥]{2,8}(?:事业部|中心|[部组处科室]|大区|区域)(?![一-龥])"),
+        # Department names: pure Chinese (e.g. "技术部", "产品研发中心")
+        re.compile(
+            r"(?<![一-龥A-Za-z0-9])"
+            r"[一-龥]{1,8}"
+            r"(?:事业部|中心|[部组处科室]|大区|区域)"
+            r"(?![门分署落位件队族首])",
+        ),
+        EntityType.DEPARTMENT,
+    ),
+    (
+        # Department names with ASCII prefix, allowed after Chinese text (e.g. "AI 数据部", "在AI数据部")
+        re.compile(
+            r"(?<![A-Za-z0-9])"
+            r"[A-Za-z]{1,4} ?"
+            r"[一-龥]{1,8}"
+            r"(?:事业部|中心|[部组处科室]|大区|区域)"
+            r"(?![门分署落位件队族首])",
+        ),
         EntityType.DEPARTMENT,
     ),
 )
@@ -81,16 +98,19 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
         return []
 
     candidates: list[tuple[int, int, EntityType, str]] = []
+
+    # Document entity patterns first — department regex takes priority
+    # over generic Chinese-name matching for terms like "技术部".
+    for pattern, entity_type in DOCUMENT_ENTITY_PATTERNS:
+        for match in pattern.finditer(text):
+            candidates.append((match.start(), match.end(), entity_type, match.group(0)))
+
     stripped = text.strip()
     if stripped and stripped not in DOCUMENT_LABEL_WORDS:
         entity_type = detect_cell_entity_type(stripped)
         if entity_type:
             start = len(text) - len(text.lstrip())
             candidates.append((start, start + len(stripped), entity_type, stripped))
-
-    for pattern, entity_type in DOCUMENT_ENTITY_PATTERNS:
-        for match in pattern.finditer(text):
-            candidates.append((match.start(), match.end(), entity_type, match.group(0)))
 
     for match in LABELED_CHINESE_NAME_RE.finditer(text):
         name = match.group(1)
@@ -327,21 +347,30 @@ def anonymize_docx_bytes(content: bytes, seed_mapping: MappingFile | None = None
     state = AnonymizerState(seed_mapping=seed_mapping)
     doc = Document(BytesIO(content))
 
-    def _patch_paragraph(para) -> None:
-        for run in para.runs:
-            original = run.text or ""
-            if original.strip():
-                replaced, changed = _replace_entities_in_text(original, state)
-                if changed:
-                    run.text = replaced
-
+    # Build a flat list of every paragraph-like element and its runs
+    para_runs: list[list[object]] = []
     for para in doc.paragraphs:
-        _patch_paragraph(para)
+        para_runs.append(list(para.runs))
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
-                    _patch_paragraph(para)
+                    para_runs.append(list(para.runs))
+
+    # Pass 1: register entities from full paragraph text
+    for runs in para_runs:
+        full_text = "".join(run.text or "" for run in runs)
+        if full_text.strip():
+            _register_entities_in_text(full_text, state)
+
+    # Build token lookup
+    token_by_original: dict[str, str] = {}
+    for entry in state.entries:
+        token_by_original[entry.original] = entry.token
+
+    # Pass 2: replace entities in individual runs
+    for runs in para_runs:
+        _replace_in_runs(runs, token_by_original)
 
     buf = BytesIO()
     doc.save(buf)
@@ -350,6 +379,25 @@ def anonymize_docx_bytes(content: bytes, seed_mapping: MappingFile | None = None
         mapping=state.to_mapping_file(),
         row_count=len(state.entries),
     )
+
+
+def _replace_in_runs(runs: list[object], token_by_original: dict[str, str]) -> None:
+    """Replace known entity text with tokens across a paragraph's runs.
+
+    Works on the paragraph-level full text first (so entities split across
+    runs like "AI" + "数据部" are caught), then writes the result back
+    into the first run, preserving the paragraph content.
+    """
+    if not runs or not token_by_original:
+        return
+
+    full_text = "".join(run.text or "" for run in runs)
+    for orig_text, token in token_by_original.items():
+        full_text = full_text.replace(orig_text, token)
+
+    runs[0].text = full_text
+    for run in runs[1:]:
+        run.text = ""
 
 
 def anonymize_pdf_bytes(content: bytes, seed_mapping: MappingFile | None = None) -> DocumentAnonymizeResult:

@@ -133,12 +133,19 @@ def detect_header_row(raw_rows: list[list[str]]) -> int:
 
 
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
+# Matches department names like "技术部", "AI 数据部", "产品研发中心".
+# Requires at least one Chinese char before the structural suffix so bare
+# label words like "部门" or "所属部门" don't match (they have no suffix remainder).
+DEPARTMENT_RE = re.compile(
+    r"^(?:[A-Za-z]{1,4} ?)?[一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域)$"
+)
 DETECTORS_BY_RE = [
     (ID_NUMBER_RE, EntityType.ID_NUMBER),
     (PHONE_RE, EntityType.PHONE),
     (EMAIL_RE, EntityType.EMAIL),
     (LICENSE_PLATE_RE, EntityType.LICENSE_PLATE),
     (EMPLOYEE_ID_RE, EntityType.EMPLOYEE_ID),
+    (DEPARTMENT_RE, EntityType.DEPARTMENT),
     (CHINESE_NAME_RE, EntityType.EMPLOYEE),
 ]
 
