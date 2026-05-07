@@ -86,6 +86,40 @@ def _replace_entities_in_text(text: str, state: AnonymizerState) -> tuple[str, b
     return "".join(parts), True
 
 
+def _anonymize_pdf_with_pymupdf(content: bytes, seed_mapping: MappingFile | None = None) -> DocumentAnonymizeResult:
+    import fitz
+
+    state = AnonymizerState(seed_mapping=seed_mapping)
+    doc = fitz.open(stream=content, filetype="pdf")
+    redactions_by_page: dict[int, list[tuple[object, str]]] = {}
+
+    for page_index, page in enumerate(doc):
+        text = page.get_text("text") or ""
+        _register_entities_in_text(text, state)
+
+        for entry in state.entries:
+            rects = page.search_for(entry.original)
+            if not rects:
+                continue
+            redactions_by_page.setdefault(page_index, [])
+            for rect in rects:
+                redactions_by_page[page_index].append((rect, entry.token))
+                page.add_redact_annot(rect, fill=(1, 1, 1))
+
+    for page_index, redactions in redactions_by_page.items():
+        page = doc[page_index]
+        page.apply_redactions()
+        for rect, token in redactions:
+            token_rect = fitz.Rect(rect.x0, rect.y0 - 1, max(rect.x1 + 80, rect.x0 + 140), rect.y1 + 8)
+            page.insert_textbox(token_rect, token, fontsize=7, fontname="helv", color=(0, 0, 0), align=0)
+
+    return DocumentAnonymizeResult(
+        workbook_bytes=doc.tobytes(garbage=4, deflate=True),
+        mapping=state.to_mapping_file(),
+        row_count=len(state.entries),
+    )
+
+
 def anonymize_docx_bytes(content: bytes, seed_mapping: MappingFile | None = None) -> DocumentAnonymizeResult:
     state = AnonymizerState(seed_mapping=seed_mapping)
     doc = Document(BytesIO(content))
@@ -116,6 +150,11 @@ def anonymize_docx_bytes(content: bytes, seed_mapping: MappingFile | None = None
 
 
 def anonymize_pdf_bytes(content: bytes, seed_mapping: MappingFile | None = None) -> DocumentAnonymizeResult:
+    try:
+        return _anonymize_pdf_with_pymupdf(content, seed_mapping=seed_mapping)
+    except ImportError:
+        pass
+
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import ArrayObject, ByteStringObject, ContentStream, TextStringObject
 
