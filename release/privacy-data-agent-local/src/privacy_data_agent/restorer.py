@@ -69,31 +69,34 @@ def _restore_pptx(content: bytes, mapping: MappingFile) -> bytes:
 
 def _restore_pdf(content: bytes, mapping: MappingFile) -> bytes:
     from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import ArrayObject
+    from pypdf.generic import ArrayObject, ContentStream, TextStringObject
 
     reader = PdfReader(BytesIO(content))
     writer = PdfWriter()
 
     for page in reader.pages:
-        try:
-            if "/Contents" in page:
-                contents = page["/Contents"]
-                if isinstance(contents, ArrayObject):
-                    data = b"".join(
-                        item.get_object().get_data()
-                        for item in contents
-                    )
-                else:
-                    data = contents.get_object().get_data()
-                text = data.decode("latin-1", errors="replace")
-                restored_text = _replace_all(text, mapping)
-                if restored_text != text:
-                    # Content was modified; pypdf doesn't support in-place stream editing
-                    # so we note this limitation and copy pages as-is
-                    pass
-        except Exception:
-            pass
         writer.add_page(page)
+        contents = page.get_contents()
+        if contents is None:
+            continue
+        content_stream = ContentStream(contents, reader)
+        changed = False
+        for operands, operator in content_stream.operations:
+            if operator in (b"Tj", b"'") and operands:
+                if isinstance(operands[0], TextStringObject):
+                    new_text = _replace_all(str(operands[0]), mapping)
+                    if new_text != str(operands[0]):
+                        operands[0] = TextStringObject(new_text)
+                        changed = True
+            elif operator == b"TJ" and operands and isinstance(operands[0], ArrayObject):
+                for index, item in enumerate(operands[0]):
+                    if isinstance(item, TextStringObject):
+                        new_text = _replace_all(str(item), mapping)
+                        if new_text != str(item):
+                            operands[0][index] = TextStringObject(new_text)
+                            changed = True
+        if changed:
+            writer.pages[-1].replace_contents(content_stream)
 
     buf = BytesIO()
     writer.write(buf)
