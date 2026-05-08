@@ -16,6 +16,7 @@ class EntityType(StrEnum):
     EMAIL = "email"
     LICENSE_PLATE = "license_plate"
     SALARY = "salary"  # v1.10.0: 薪资/薪酬/奖金/补贴等货币字段
+    JOB_TITLE = "job_title"
 
 
 ANON_TOKEN_PREFIX = "PDA"
