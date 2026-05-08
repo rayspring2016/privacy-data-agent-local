@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .sample { padding: 10px 0; border-bottom: 1px solid #f0f2f6; }
+  .sample p { color: #1f1f1f; line-height: 1.5; margin-bottom: 4px; }
+  .meta { font-size: 10px; color: #bbbccc; font-family: monospace; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+  .cell { background: #f8f9fa; border-radius: 4px; padding: 8px 10px; font-size: 12px; color: #262730; line-height: 1.5; border: 1px solid #e6e9ef; }
+  .cell-label { font-size: 10px; color: #808495; margin-bottom: 4px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Chinese body text — key UI strings</div>
+
+<div class="sample">
+  <p style="font-size:1rem;">文件只在本机处理，不会上传到服务器，也不会调用大模型。</p>
+  <div class="meta">body · 16px</div>
+</div>
+
+<div class="sample">
+  <p style="font-size:0.8125rem; color:#6b6b6b;">上传后，本批次中出现的相同姓名/部门将沿用之前的 token，新实体继续随机生成。不同批次无需上传，保持独立安全。</p>
+  <div class="meta">caption · 13px · muted</div>
+</div>
+
+<div class="sample">
+  <p style="font-size:0.8125rem; color:#7a4f00; background:#fff8e8; border-left:4px solid #ffa421; border-radius:4px; padding:8px 12px;">匹配文件和匹配表包含原始敏感信息，只能保存在本地。</p>
+  <div class="meta">warning caption · 13px</div>
+</div>
+
+<div class="section-title">Mixed Chinese / ASCII — file naming & counts</div>
+<div class="grid">
+  <div class="cell">
+    <div class="cell-label">Success state</div>
+    脱敏完成：42 行，新增 18 个实体，累计 32 个匹配项。
+  </div>
+  <div class="cell">
+    <div class="cell-label">Download label</div>
+    ⬇️ 一键打包下载（推荐）
+  </div>
+  <div class="cell">
+    <div class="cell-label">File label mixed</div>
+    hr_data_脱敏包.zip
+  </div>
+  <div class="cell">
+    <div class="cell-label">Expander label</div>
+    同一批次追加文件？上传已有匹配文件（可选）
+  </div>
+</div>
+
+<div class="section-title">Word-break behavior (keep-all)</div>
+<div class="sample">
+  <p style="font-size:2rem; font-weight:700; line-height:1.15; word-break:keep-all; max-width:280px; color:#1f1f1f;">本地数据<br>脱敏工具</p>
+  <div class="meta">h1 · word-break: keep-all · mobile simulated 280px</div>
+</div>
+
+</body>
+</html>

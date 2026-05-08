@@ -93,7 +93,7 @@ def anonymize_xlsx_bytes(
                                 result = result.replace(seg, token, 1)
                         cell.value = result
                 else:
-                    entity_type = column_type or detect_cell_entity_type(text)
+                    entity_type = column_type or detect_cell_entity_type(text, column_type=column_type)
                     if entity_type is None:
                         continue
                     cell.value = state.token_for(entity_type, text)

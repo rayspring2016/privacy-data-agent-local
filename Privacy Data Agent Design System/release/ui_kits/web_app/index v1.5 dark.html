@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据脱敏工具</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+body {
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #0b0b0d;
+  color: #e4e4e7;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 16px 80px;
+  background:
+    radial-gradient(ellipse 800px 300px at 50% 0%, rgba(195,105,105,0.03) 0%, transparent 60%),
+    #0b0b0d;
+}
+
+/* ── Browser chrome ───────────────────────────── */
+.chrome-bar {
+  width: 100%;
+  max-width: 780px;
+  background: #111115;
+  border-radius: 10px 10px 0 0;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  border-bottom: none;
+}
+.chrome-dots { display: flex; gap: 6px; }
+.chrome-dot { width: 10px; height: 10px; border-radius: 50%; opacity: 0.7; }
+.chrome-url {
+  flex: 1;
+  background: #0c0c0f;
+  border-radius: 5px;
+  padding: 5px 14px;
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: #545459;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0.5px solid rgba(255,255,255,0.04);
+  letter-spacing: 0.02em;
+}
+.lock-dot { width: 6px; height: 6px; border-radius: 50%; background: #3dd68c; flex-shrink: 0; }
+
+/* ── App card ────────────────────────────────── */
+.app-card {
+  width: 100%;
+  max-width: 780px;
+  background: #0e0e11;
+  border-radius: 0 0 12px 12px;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  border-top: none;
+  overflow: hidden;
+}
+.app-card.no-chrome {
+  border-radius: 12px;
+  border-top: 0.5px solid rgba(255,255,255,0.06);
+}
+
+/* ── Header ──────────────────────────────────── */
+.app-header {
+  padding: 40px 44px 32px;
+  position: relative;
+  overflow: hidden;
+}
+.app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(61,214,140,0.07);
+  border: 0.5px solid rgba(61,214,140,0.12);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #5fe09e;
+  margin-bottom: 20px;
+  letter-spacing: 0.03em;
+}
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: #3dd68c; animation: badge-pulse 3s ease-in-out infinite; }
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.app-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #f5f5f6;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 8px;
+}
+.app-subtitle {
+  font-size: 13px;
+  color: #545459;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* ── Tabs ────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  padding: 0 44px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  background: #0c0c0f;
+}
+.tab-btn {
+  position: relative;
+  padding: 14px 0;
+  margin-right: 32px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #545459;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.2s;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.tab-btn.active { color: #f5f5f6; font-weight: 600; }
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5px; left: 0; right: 0;
+  height: 1.5px;
+  background: #cb7b7b;
+  border-radius: 1px 1px 0 0;
+}
+.tab-btn:hover:not(.active) { color: #7e7e86; }
+
+/* ── Content ─────────────────────────────────── */
+.content-area { padding: 36px 44px 44px; }
+
+/* ── Field label ─────────────────────────────── */
+.field-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #545459;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* ── Upload zone ─────────────────────────────── */
+.upload-zone {
+  border: 1px dashed rgba(255,255,255,0.08);
+  border-radius: 8px;
+  background: #0c0c0f;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: rgba(203,123,123,0.3);
+  background: rgba(203,123,123,0.03);
+}
+.upload-zone.filled {
+  border-style: solid;
+  border-color: rgba(255,255,255,0.06);
+  background: #0c0c0f;
+  padding: 14px 18px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  cursor: default;
+}
+.upload-icon-wrap {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: #111115;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+.upload-zone:hover .upload-icon-wrap,
+.upload-zone.drag-over .upload-icon-wrap {
+  background: rgba(203,123,123,0.06);
+  border-color: rgba(203,123,123,0.2);
+}
+.upload-main-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #c4c4ca;
+}
+.upload-sub-text { font-size: 11.5px; color: #545459; }
+.type-chips { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+.type-chip {
+  background: #111115;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #545459;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.05em;
+}
+.file-info { display: flex; align-items: center; gap: 10px; }
+.file-icon-box {
+  width: 32px; height: 32px;
+  background: #111115;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.file-name { font-size: 13.5px; font-weight: 600; color: #d4d4d8; }
+.file-size { font-size: 11px; color: #545459; font-family: "JetBrains Mono", monospace; margin-top: 1px; }
+.file-remove {
+  background: none; border: none; cursor: pointer;
+  color: #545459; font-size: 15px; padding: 4px 6px;
+  border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1;
+}
+.file-remove:hover { color: #cb7b7b; background: rgba(203,123,123,0.06); }
+
+/* ── Expander ────────────────────────────────── */
+.expander {
+  border: 0.5px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.expander-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 18px;
+  background: #0c0c0f;
+  cursor: pointer; border: none; width: 100%; text-align: left;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: #7e7e86;
+  transition: background 0.15s, color 0.15s;
+}
+.expander-head:hover { background: #111115; color: #c4c4ca; }
+.expander-chevron { color: #545459; font-size: 9px; transition: transform 0.2s; flex-shrink: 0; }
+.expander-chevron.open { transform: rotate(180deg); }
+.expander-body {
+  padding: 16px 18px;
+  border-top: 0.5px solid rgba(255,255,255,0.05);
+  display: flex; flex-direction: column; gap: 10px;
+  background: #0e0e11;
+}
+
+/* ── Buttons ─────────────────────────────────── */
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px 20px;
+  background: #cb7b7b;
+  color: #fff;
+  border: none; border-radius: 7px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; letter-spacing: -0.01em;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 0 0 1px rgba(203,123,123,0.2), 0 2px 8px rgba(203,123,123,0.08);
+}
+.btn-primary:hover {
+  background: #d48888;
+  box-shadow: 0 0 0 1px rgba(203,123,123,0.3), 0 4px 14px rgba(203,123,123,0.12);
+}
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled {
+  background: #161618; color: #3d3d42;
+  box-shadow: none; cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 14px;
+  background: #111115; color: #7e7e86;
+  border: 0.5px solid rgba(255,255,255,0.06); border-radius: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { background: #161618; color: #c4c4ca; border-color: rgba(255,255,255,0.1); }
+
+.btn-ghost {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 14px;
+  background: transparent; color: #545459;
+  border: 0.5px solid rgba(255,255,255,0.04); border-radius: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover { color: #7e7e86; border-color: rgba(255,255,255,0.08); }
+
+/* ── Progress ────────────────────────────────── */
+.progress-container {
+  border: 0.5px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 22px 24px;
+  background: #0e0e11;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.progress-header { display: flex; justify-content: space-between; align-items: center; }
+.progress-label { font-size: 13px; font-weight: 600; color: #c4c4ca; }
+.progress-pct {
+  font-size: 12px; font-weight: 700;
+  color: #cb7b7b;
+  font-family: "JetBrains Mono", monospace;
+}
+.progress-track {
+  width: 100%; height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 99px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: #cb7b7b;
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.22,0.61,0.36,1);
+}
+.progress-steps { display: flex; flex-direction: column; gap: 10px; }
+.progress-step {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #3d3d42;
+  transition: color 0.2s;
+}
+.progress-step.done { color: #7e7e86; }
+.progress-step.active { color: #e4e4e7; font-weight: 600; }
+.step-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: transparent; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.step-dot.done { background: rgba(61,214,140,0.1); border-color: rgba(61,214,140,0.3); color: #3dd68c; font-weight: 700; }
+.step-dot.active {
+  border-color: #cb7b7b;
+  animation: step-pulse 1.5s ease-in-out infinite;
+  position: relative;
+}
+.step-dot.active::after {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #cb7b7b;
+}
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(203,123,123,0.12); }
+  50% { box-shadow: 0 0 0 4px rgba(203,123,123,0); }
+}
+.step-done-label {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: #3dd68c;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── Alerts ──────────────────────────────────── */
+.alert {
+  border-radius: 7px; padding: 12px 16px;
+  font-size: 13px; line-height: 1.5;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.alert-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; font-weight: 700; }
+.alert.success { background: rgba(61,214,140,0.06); border: 0.5px solid rgba(61,214,140,0.12); color: #5fe09e; }
+.alert.warning { background: rgba(245,158,11,0.06); border: 0.5px solid rgba(245,158,11,0.12); color: #fbbf24; }
+.alert.error   { background: rgba(203,123,123,0.06);  border: 0.5px solid rgba(203,123,123,0.12);  color: #e07878; }
+.alert.info    { background: rgba(96,165,250,0.06); border: 0.5px solid rgba(96,165,250,0.12); color: #93c5fd; }
+
+/* ── Result card ─────────────────────────────── */
+.result-card {
+  border: 0.5px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.result-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px;
+  background: #0c0c0f;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  gap: 12px;
+}
+.result-stats { display: flex; gap: 28px; align-items: center; }
+.stat { display: flex; flex-direction: column; }
+.stat-num {
+  font-size: 22px; font-weight: 700;
+  color: #f5f5f6; letter-spacing: -0.04em; line-height: 1;
+}
+.stat-label { font-size: 10.5px; color: #545459; margin-top: 4px; font-weight: 500; letter-spacing: 0.03em; }
+.stat-sep { width: 0.5px; height: 30px; background: rgba(255,255,255,0.05); }
+.result-card-body { padding: 16px 22px; display: flex; flex-direction: column; gap: 10px; background: #0e0e11; }
+
+/* token pills */
+.token-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.token-pill {
+  background: #0c0c0f;
+  border: 0.5px solid rgba(255,255,255,0.06);
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: #7e7e86; font-weight: 500; letter-spacing: 0.04em;
+}
+
+/* caption */
+.caption { font-size: 12px; color: #545459; line-height: 1.6; }
+
+/* code textarea */
+.code-area {
+  width: 100%; background: #0c0c0f;
+  border: 0.5px solid rgba(255,255,255,0.05); border-radius: 6px;
+  padding: 14px 16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px; color: #7e7e86; line-height: 1.7;
+  resize: none; outline: none;
+}
+.code-area:focus { border-color: rgba(255,255,255,0.1); }
+
+/* divider */
+.divider { height: 0.5px; background: rgba(255,255,255,0.05); margin: 2px 0; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0b0b0d; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+/* ── Upload Zone ───────────────────────────── */
+function UploadZone({ label, sublabel, acceptChips, value, onChange }) {
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+
+  const handleDrop = (e) => {
+    e.preventDefault(); setDrag(false);
+    const f = e.dataTransfer.files[0];
+    if (f) onChange(f);
+  };
+
+  if (value) {
+    const kb = Math.round((value.size || 0) / 1024) || Math.floor(Math.random()*180+20);
+    return (
+      <div className="upload-zone filled">
+        <div className="file-info">
+          <div className="file-icon-box">📄</div>
+          <div>
+            <div className="file-name">{value.name || value._name}</div>
+            <div className="file-size">{kb} KB</div>
+          </div>
+        </div>
+        <button className="file-remove" onClick={() => onChange(null)}>✕</button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`upload-zone${drag ? ' drag-over' : ''}`}
+      onClick={() => inputRef.current.click()}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={handleDrop}
+    >
+      <div className="upload-icon-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke={drag ? '#cb7b7b' : '#545459'} strokeWidth="2" strokeLinecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div className="upload-main-text">{label}</div>
+      {sublabel && <div className="upload-sub-text">{sublabel}</div>}
+      <div className="type-chips">
+        {acceptChips.map(c => <span key={c} className="type-chip">{c}</span>)}
+      </div>
+      <input ref={inputRef} type="file" style={{ display: 'none' }}
+        onChange={e => onChange(e.target.files[0] || null)} />
+    </div>
+  );
+}
+
+/* ── Expander ──────────────────────────────── */
+function Expander({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="expander">
+      <button className="expander-head" onClick={() => setOpen(o => !o)}>
+        <span>{title}</span>
+        <span className={`expander-chevron${open ? ' open' : ''}`}>▼</span>
+      </button>
+      {open && <div className="expander-body">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Progress block ────────────────────────── */
+function ProgressBlock({ steps, pct, currentStep }) {
+  return (
+    <div className="progress-container">
+      <div className="progress-header">
+        <span className="progress-label">处理中…</span>
+        <span className="progress-pct">{pct}%</span>
+      </div>
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="progress-steps">
+        {steps.map((s, i) => {
+          const isDone = i < currentStep;
+          const isActive = i === currentStep;
+          return (
+            <div key={s} className={`progress-step${isDone ? ' done' : isActive ? ' active' : ''}`}>
+              <div className={`step-dot${isDone ? ' done' : isActive ? ' active' : ''}`}>
+                {isDone && '✓'}
+              </div>
+              {s}
+              {isDone && <span className="step-done-label">完成</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Anonymize Tab ─────────────────────────── */
+const ANON_STEPS = ['读取文件', '识别敏感字段', '生成脱敏 token', '生成输出文件'];
+
+function AnonymizeTab() {
+  const [sourceFile, setSourceFile] = useState(null);
+  const [seedFile, setSeedFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [pct, setPct] = useState(0);
+  const [step, setStep] = useState(0);
+
+  const start = useCallback(() => {
+    if (!sourceFile) return;
+    setPhase('processing'); setPct(0); setStep(0);
+    [
+      [280,  18, 0],
+      [700,  42, 1],
+      [1250, 67, 2],
+      [1850, 88, 3],
+      [2350, 100, 4],
+    ].forEach(([ms, p, s]) => setTimeout(() => {
+      setPct(p); setStep(s);
+      if (p === 100) setTimeout(() => setPhase('done'), 300);
+    }, ms));
+  }, [sourceFile]);
+
+  const reset = () => { setPhase('idle'); setPct(0); setStep(0); setSourceFile(null); setSeedFile(null); };
+
+  if (phase === 'processing') return <ProgressBlock steps={ANON_STEPS} pct={pct} currentStep={step} />;
+
+  if (phase === 'done') return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="result-card">
+        <div className="result-card-head">
+          <div className="result-stats">
+            <div className="stat">
+              <span className="stat-num">42</span>
+              <span className="stat-label">处理行数</span>
+            </div>
+            <div className="stat-sep" />
+            <div className="stat">
+              <span className="stat-num">18</span>
+              <span className="stat-label">脱敏实体</span>
+            </div>
+            <div className="stat-sep" />
+            <div className="stat">
+              <span className="stat-num">7</span>
+              <span className="stat-label">字段类型</span>
+            </div>
+          </div>
+          <div className="alert success" style={{ padding: '5px 10px', fontSize: 12 }}>
+            <span className="alert-icon">✓</span>脱敏完成
+          </div>
+        </div>
+        <div className="result-card-body">
+          <div className="caption">Token 样例</div>
+          <div className="token-row">
+            <span className="token-pill">PDA_A1B2C3D4E5F60708</span>
+            <span className="token-pill">PDA_F3E2D1C0B9A87654</span>
+            <span className="token-pill">PDA_0011223344556677</span>
+          </div>
+        </div>
+      </div>
+
+      <button className="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        一键打包下载
+      </button>
+      <p className="caption">ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。</p>
+
+      <Expander title="单独下载各文件">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <button className="btn-secondary">下载脱敏 Excel</button>
+          <button className="btn-secondary">下载脱敏 CSV</button>
+          <button className="btn-secondary">下载匹配文件 JSON</button>
+          <button className="btn-secondary">下载匹配表 CSV</button>
+        </div>
+      </Expander>
+
+      <div className="alert warning">
+        <span className="alert-icon">⚠</span>
+        匹配文件包含原始敏感信息，只能保存在本地，切勿外传。
+      </div>
+
+      <button className="btn-ghost" onClick={reset}>处理另一个文件</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <div className="field-label">数据文件</div>
+        <UploadZone label="上传需要脱敏的数据文件" sublabel="拖拽文件至此，或点击选择"
+          acceptChips={['CSV', 'XLSX']} value={sourceFile} onChange={setSourceFile} />
+      </div>
+      <Expander title="同一批次追加文件（可选）">
+        <p className="caption">
+          上传已有 mapping.local.json 后，本批次中相同实体将沿用之前的 token，新实体继续随机生成。
+        </p>
+        <UploadZone label="上传已有匹配文件" acceptChips={['JSON', 'CSV']}
+          value={seedFile} onChange={setSeedFile} />
+      </Expander>
+      <button className="btn-primary" disabled={!sourceFile} onClick={start} style={{ marginTop: 4 }}>
+        开始脱敏
+      </button>
+    </div>
+  );
+}
+
+/* ── Restore Tab ───────────────────────────── */
+const RESTORE_STEPS = ['读取报告文件', '加载匹配文件', '替换 token 为原始值', '生成反脱敏报告'];
+
+function RestoreTab() {
+  const [reportFile, setReportFile] = useState(null);
+  const [mappingFile, setMappingFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [pct, setPct] = useState(0);
+  const [step, setStep] = useState(0);
+
+  const ready = reportFile && mappingFile;
+
+  const start = useCallback(() => {
+    if (!ready) return;
+    setPhase('processing'); setPct(0); setStep(0);
+    [
+      [250,  22, 0],
+      [650,  50, 1],
+      [1100, 78, 2],
+      [1600, 100, 3],
+    ].forEach(([ms, p, s]) => setTimeout(() => {
+      setPct(p); setStep(s);
+      if (p === 100) setTimeout(() => setPhase('done'), 300);
+    }, ms));
+  }, [ready]);
+
+  const reset = () => { setPhase('idle'); setPct(0); setStep(0); setReportFile(null); setMappingFile(null); };
+
+  const restored = `# 数据分析报告\n\n张三 在 华东销售一部 负责 上海春雷科技有限公司，建议提高资源投入。\n\n建议复盘上海春雷科技有限公司的成交过程，并让张三输出方法论。`;
+
+  if (phase === 'processing') return <ProgressBlock steps={RESTORE_STEPS} pct={pct} currentStep={step} />;
+
+  if (phase === 'done') return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="alert success">
+        <span className="alert-icon">✓</span>
+        报告恢复完成。原始值已从匹配文件中还原。
+      </div>
+      <button className="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        下载反脱敏报告
+      </button>
+      <Expander title="预览恢复结果" defaultOpen={true}>
+        <textarea className="code-area" readOnly value={restored} rows={7} />
+      </Expander>
+      <button className="btn-ghost" onClick={reset}>处理另一份报告</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <div className="field-label">报告文件</div>
+        <UploadZone label="上传待恢复的报告文件" sublabel="拖拽文件至此，或点击选择"
+          acceptChips={['MD', 'TXT', 'HTML', 'DOCX', 'PPTX']}
+          value={reportFile} onChange={setReportFile} />
+      </div>
+      <div>
+        <div className="field-label">匹配文件</div>
+        <UploadZone label="上传 mapping.local.json 或 mapping_table.csv"
+          acceptChips={['JSON', 'CSV']} value={mappingFile} onChange={setMappingFile} />
+      </div>
+      {reportFile && !mappingFile && (
+        <div className="alert info">
+          <span className="alert-icon">ℹ</span>
+          还需上传匹配文件才能开始反脱敏。
+        </div>
+      )}
+      <button className="btn-primary" disabled={!ready} onClick={start} style={{ marginTop: 4 }}>
+        开始反脱敏
+      </button>
+    </div>
+  );
+}
+
+/* ── Tweaks ────────────────────────────────── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showChrome": true,
+  "activeTab": "数据脱敏"
+}/*EDITMODE-END*/;
+
+function TweaksPanel({ tweaks, setTweak }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const h = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setVisible(true);
+      if (e.data?.type === '__deactivate_edit_mode') setVisible(false);
+    };
+    window.addEventListener('message', h);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', h);
+  }, []);
+  if (!visible) return null;
+
+  const close = () => { setVisible(false); window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*'); };
+  const chip = (on) => ({
+    padding: '5px 12px', borderRadius: 6, fontSize: 12.5, fontWeight: 600,
+    cursor: 'pointer',
+    border: `0.5px solid ${on ? 'rgba(203,123,123,0.4)' : 'rgba(255,255,255,0.06)'}`,
+    background: on ? 'rgba(203,123,123,0.08)' : '#111115',
+    color: on ? '#cb7b7b' : '#545459',
+    transition: 'all 0.15s',
+  });
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: '#0e0e11', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12,
+      padding: '16px 18px', width: 220,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f6', letterSpacing: '-0.01em' }}>Tweaks</span>
+        <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#545459', fontSize: 15, lineHeight: 1, padding: 2 }}>✕</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#545459', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Chrome</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <span style={chip(tweaks.showChrome)} onClick={() => setTweak('showChrome', true)}>显示</span>
+            <span style={chip(!tweaks.showChrome)} onClick={() => setTweak('showChrome', false)}>隐藏</span>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#545459', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>页签</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {['数据脱敏', '报告反脱敏'].map(t => (
+              <span key={t} style={chip(tweaks.activeTab === t)} onClick={() => setTweak('activeTab', t)}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── App ───────────────────────────────────── */
+function App() {
+  const [tweaks, setTweaksRaw] = useState(TWEAK_DEFAULTS);
+  const setTweak = (k, v) => setTweaksRaw(p => {
+    const n = { ...p, [k]: v };
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+    return n;
+  });
+  const [tab, setTab] = useState(tweaks.activeTab);
+  useEffect(() => setTab(tweaks.activeTab), [tweaks.activeTab]);
+
+  return (
+    <>
+      {tweaks.showChrome && (
+        <div className="chrome-bar">
+          <div className="chrome-dots">
+            <div className="chrome-dot" style={{ background: '#e06060' }} />
+            <div className="chrome-dot" style={{ background: '#e0b040' }} />
+            <div className="chrome-dot" style={{ background: '#40b860' }} />
+          </div>
+          <div className="chrome-url">
+            <div className="lock-dot" />
+            127.0.0.1:8501
+          </div>
+        </div>
+      )}
+
+      <div className={`app-card${tweaks.showChrome ? '' : ' no-chrome'}`}>
+        <div className="app-header">
+          <div className="privacy-badge">
+            <div className="badge-dot" />
+            本地运行 · 数据不出境
+          </div>
+          <h1 className="app-title">数据脱敏工具</h1>
+          <p className="app-subtitle">文件仅在本机处理，不上传服务器，不调用大模型。</p>
+        </div>
+
+        <div className="tab-bar">
+          {['数据脱敏', '报告反脱敏'].map(t => (
+            <button key={t} className={`tab-btn${tab === t ? ' active' : ''}`}
+              onClick={() => setTab(t)}>{t}</button>
+          ))}
+        </div>
+
+        <div className="content-area">
+          {tab === '数据脱敏' ? <AnonymizeTab key="a" /> : <RestoreTab key="r" />}
+        </div>
+      </div>
+
+      <TweaksPanel tweaks={tweaks} setTweak={setTweak} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

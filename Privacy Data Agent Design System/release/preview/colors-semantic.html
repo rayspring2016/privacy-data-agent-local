@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .alert { flex: 1; border-radius: 6px; padding: 10px 14px; border-left: 4px solid; }
+  .alert-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 3px; }
+  .alert-copy { font-size: 12px; line-height: 1.4; }
+  .alert-hex { font-size: 10px; font-family: monospace; margin-top: 5px; opacity: 0.7; }
+  .success { background:#e6f9ed; border-color:#21c354; }
+  .success .alert-label, .success .alert-copy { color:#0d6b2c; }
+  .warning { background:#fff8e8; border-color:#ffa421; }
+  .warning .alert-label, .warning .alert-copy { color:#7a4f00; }
+  .error { background:#fde8e8; border-color:#ff4b4b; }
+  .error .alert-label, .error .alert-copy { color:#8b1a1a; }
+  .info { background:#e8f2fd; border-color:#1c83e1; }
+  .info .alert-label, .info .alert-copy { color:#0a4a85; }
+  .token-row { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .token { background:#f8f9fa; border:1px solid #e6e9ef; border-radius:4px; padding:5px 10px; font-family:monospace; font-size:12px; color:#262730; }
+  .section-title { font-size:11px; font-weight:600; color:#808495; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px; margin-top:14px; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="alert success">
+    <div class="alert-label">Success</div>
+    <div class="alert-copy">脱敏完成：42 行，生成 18 个匹配项。</div>
+    <div class="alert-hex">#21c354 · bg #e6f9ed</div>
+  </div>
+  <div class="alert warning">
+    <div class="alert-label">Warning</div>
+    <div class="alert-copy">匹配文件包含原始敏感信息，只能保存在本地。</div>
+    <div class="alert-hex">#ffa421 · bg #fff8e8</div>
+  </div>
+</div>
+<div class="row">
+  <div class="alert error">
+    <div class="alert-label">Error</div>
+    <div class="alert-copy">处理失败：不支持的文件格式。</div>
+    <div class="alert-hex">#ff4b4b · bg #fde8e8</div>
+  </div>
+  <div class="alert info">
+    <div class="alert-label">Info</div>
+    <div class="alert-copy">请同时上传报告文件和匹配文件。</div>
+    <div class="alert-hex">#1c83e1 · bg #e8f2fd</div>
+  </div>
+</div>
+<div class="section-title">Anonymization Tokens (monospace)</div>
+<div class="token-row">
+  <span class="token">PDA_A1B2C3D4E5F60708</span>
+  <span class="token">PDA_FF00112233445566</span>
+  <span class="token">PDA_9E8D7C6B5A4F3E2D</span>
+</div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .demo-block { background: #fafafa; border: 1px solid #e6e9ef; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+  .demo-label { font-size: 10px; color: #bbbccc; font-family: monospace; margin-top: 8px; }
+
+  .expander { border: 1px solid #e6e9ef; border-radius: 6px; overflow: hidden; background: #fff; }
+  .expander-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fafafa; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #262730; }
+  .expander-chevron { color: #808495; font-size: 11px; transition: transform 0.15s; }
+  .expander-chevron.open { transform: rotate(180deg); }
+  .expander-body { padding: 12px 14px; background: #fff; font-size: 0.875rem; color: #262730; line-height: 1.6; display: flex; flex-direction: column; gap: 10px; }
+  .expander-caption { font-size: 0.8rem; color: #6b6b6b; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Collapsed — optional seed upload</div>
+<div class="demo-block">
+  <div class="expander">
+    <div class="expander-header">
+      同一批次追加文件？上传已有匹配文件（可选）
+      <span class="expander-chevron">▼</span>
+    </div>
+  </div>
+  <div class="demo-label">st.expander · collapsed</div>
+</div>
+
+<div class="section-title">Expanded — seed upload active</div>
+<div class="demo-block">
+  <div class="expander">
+    <div class="expander-header">
+      同一批次追加文件？上传已有匹配文件（可选）
+      <span class="expander-chevron open">▼</span>
+    </div>
+    <div class="expander-body">
+      <div class="expander-caption">上传后，本批次中出现的相同姓名/部门将沿用之前的 token，新实体继续随机生成。不同批次无需上传，保持独立安全。</div>
+      <div style="border: 2px dashed #d0d3e0; border-radius: 6px; background: #fafbfc; padding: 18px 16px; text-align: center; font-size: 0.8rem; color: #808495;">
+        选择 mapping.local.json 或 mapping_table.csv<br>
+        <span style="font-family: monospace; font-size: 0.75rem; color: #bbbccc;">JSON · CSV</span>
+      </div>
+    </div>
+  </div>
+  <div class="demo-label">st.expander · expanded · contains st.caption + st.file_uploader</div>
+</div>
+
+<div class="section-title">Collapsed — individual downloads</div>
+<div class="demo-block">
+  <div class="expander">
+    <div class="expander-header">
+      单独下载各文件
+      <span class="expander-chevron">▼</span>
+    </div>
+  </div>
+  <div class="demo-label">st.expander("单独下载各文件") · collapsed · shown after zip download</div>
+</div>
+
+<div class="section-title">Expanded — 2×2 download grid</div>
+<div class="demo-block">
+  <div class="expander">
+    <div class="expander-header">
+      单独下载各文件
+      <span class="expander-chevron open">▼</span>
+    </div>
+    <div class="expander-body">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <button style="background:#f0f2f6; border:1px solid #e6e9ef; border-radius:6px; padding:7px 10px; font-size:0.8rem; font-weight:600; color:#262730; cursor:pointer; font-family:inherit;">下载脱敏 Excel</button>
+        <button style="background:#f0f2f6; border:1px solid #e6e9ef; border-radius:6px; padding:7px 10px; font-size:0.8rem; font-weight:600; color:#262730; cursor:pointer; font-family:inherit;">下载脱敏 CSV</button>
+        <button style="background:#f0f2f6; border:1px solid #e6e9ef; border-radius:6px; padding:7px 10px; font-size:0.8rem; font-weight:600; color:#262730; cursor:pointer; font-family:inherit;">下载匹配文件 JSON</button>
+        <button style="background:#f0f2f6; border:1px solid #e6e9ef; border-radius:6px; padding:7px 10px; font-size:0.8rem; font-weight:600; color:#262730; cursor:pointer; font-family:inherit;">下载匹配表 CSV</button>
+      </div>
+    </div>
+  </div>
+  <div class="demo-label">st.expander · expanded · 2-column st.columns download buttons</div>
+</div>
+
+<div class="section-title">Preview restore result (expanded)</div>
+<div class="demo-block">
+  <div class="expander">
+    <div class="expander-header">
+      预览恢复结果
+      <span class="expander-chevron open">▼</span>
+    </div>
+    <div class="expander-body">
+      <textarea style="width:100%; height:120px; font-family:monospace; font-size:0.8rem; background:#f8f9fa; border:1px solid #e6e9ef; border-radius:4px; padding:8px; color:#262730; resize:none;"># 数据分析报告
+
+张三 在 华东销售一部 负责 上海春雷科技有限公司，建议提高资源投入。</textarea>
+      <div class="expander-caption">st.text_area("恢复后的内容") · height=260 · shown for .md/.txt/.html</div>
+    </div>
+  </div>
+  <div class="demo-label">st.expander("预览恢复结果", expanded=True)</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据脱敏工具 - 薄雾清新</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Sans+SC:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+:root {
+  --bg-page: #f0f5f3;
+  --bg-card: #ffffff;
+  --bg-chrome: #e4ece6;
+  --bg-surface: #f6faf8;
+  --bg-surface-hover: #ecf2ee;
+  --bg-input: #f5f9f6;
+  --bg-elevated: #ffffff;
+  --text-primary: #1a2e26;
+  --text-secondary: #4a6460;
+  --text-muted: #8aab9e;
+  --border-default: #d4e4dc;
+  --border-subtle: #e8f0ec;
+  --border-strong: #b8d0c4;
+  --accent: #5ba882;
+  --accent-hover: #4c9672;
+  --accent-subtle: #eef6f2;
+  --accent-border: #c0dccb;
+  --accent-soft: #ddf0e6;
+  --accent-glow: rgba(91,168,130,0.15);
+  --success: #4a9a72;
+  --success-bg: #edf7f2;
+  --success-border: #b8dcc8;
+  --success-text: #1e5c3a;
+  --warning: #c09030;
+  --warning-bg: #fdf8ec;
+  --warning-border: #f0e0b0;
+  --warning-text: #6a480e;
+  --error-bg: #fdf5f2;
+  --error-border: #f0d8cc;
+  --error-text: #8b3a1a;
+  --info-bg: #f0f5fc;
+  --info-border: #c0d0e8;
+  --info-text: #2a4578;
+  --card-shadow: 0 1px 2px rgba(26,46,38,0.03), 0 6px 20px rgba(26,46,38,0.06), 0 20px 60px rgba(26,46,38,0.04);
+}
+
+[data-theme="dark"] {
+  --bg-page: #0f1a14;
+  --bg-card: #151f1a;
+  --bg-chrome: #111813;
+  --bg-surface: #131a15;
+  --bg-surface-hover: #192219;
+  --bg-input: #0f1712;
+  --bg-elevated: #192219;
+  --text-primary: #d4e8dc;
+  --text-secondary: #7a9e8e;
+  --text-muted: #4a6e5e;
+  --border-default: rgba(255,255,255,0.06);
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-strong: rgba(255,255,255,0.09);
+  --accent: #6bc898;
+  --accent-hover: #7cd8a8;
+  --accent-subtle: rgba(107,200,152,0.08);
+  --accent-border: rgba(107,200,152,0.15);
+  --accent-soft: rgba(107,200,152,0.1);
+  --accent-glow: rgba(107,200,152,0.1);
+  --success: #5ab882;
+  --success-bg: rgba(90,184,130,0.08);
+  --success-border: rgba(90,184,130,0.15);
+  --success-text: #7ac8a0;
+  --warning: #c8a840;
+  --warning-bg: rgba(200,168,64,0.08);
+  --warning-border: rgba(200,168,64,0.15);
+  --warning-text: #d4c060;
+  --error-bg: rgba(200,140,120,0.08);
+  --error-border: rgba(200,140,120,0.15);
+  --error-text: #e0a090;
+  --info-bg: rgba(80,120,200,0.08);
+  --info-border: rgba(80,120,200,0.15);
+  --info-text: #90a8e0;
+  --card-shadow: none;
+}
+
+body {
+  font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px 88px;
+  background:
+    radial-gradient(ellipse 1000px 500px at 50% -10%, var(--accent-glow) 0%, transparent 60%),
+    var(--bg-page);
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 12px; right: 18px;
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  border-radius: 18px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; gap: 4px;
+  color: var(--text-secondary);
+  transition: background 0.2s, border-color 0.2s;
+  z-index: 10;
+  font-family: inherit;
+}
+.theme-toggle:hover { background: var(--bg-surface-hover); border-color: var(--border-strong); }
+.theme-toggle-icon { font-size: 13px; }
+[data-theme="dark"] .theme-toggle-icon.light { display: none; }
+[data-theme="dark"] .theme-toggle-icon.dark { display: inline; }
+.theme-toggle-icon.dark { display: none; }
+
+.chrome-bar {
+  width: 100%; max-width: 780px;
+  background: var(--bg-chrome);
+  border-radius: 12px 12px 0 0;
+  padding: 9px 14px;
+  display: flex; align-items: center; gap: 10px;
+  border: 0.5px solid var(--border-strong);
+  border-bottom: none;
+}
+.chrome-dots { display: flex; gap: 6px; }
+.chrome-dot { width: 11px; height: 11px; border-radius: 50%; opacity: 0.85; }
+.chrome-url {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 5px; padding: 4px 12px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+  border: 0.5px solid var(--border-default);
+}
+.lock-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+
+.app-card {
+  width: 100%; max-width: 780px;
+  background: var(--bg-card);
+  border-radius: 0 0 14px 14px;
+  border: 0.5px solid var(--border-strong);
+  border-top: none;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.app-card.no-chrome {
+  border-radius: 14px;
+  border-top: 0.5px solid var(--border-strong);
+}
+
+.app-header {
+  padding: 40px 44px 30px;
+  border-bottom: 0.5px solid var(--border-subtle);
+  background: var(--bg-card);
+  position: relative;
+}
+.privacy-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--success-bg);
+  border: 0.5px solid var(--success-border);
+  border-radius: 20px;
+  padding: 4px 10px; font-size: 11px; font-weight: 500;
+  color: var(--success-text);
+  margin-bottom: 16px;
+}
+.badge-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--success);
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,154,114,0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(74,154,114,0); }
+}
+.app-title {
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  font-size: 28px; font-weight: 400;
+  color: var(--text-primary);
+  letter-spacing: 0.04em; line-height: 1.3; margin-bottom: 8px;
+}
+.app-subtitle {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  font-weight: 300;
+}
+
+.tab-bar {
+  display: flex; padding: 0 44px;
+  border-bottom: 0.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.tab-btn {
+  position: relative; padding: 14px 0; margin-right: 30px;
+  font-size: 13.5px; font-weight: 500;
+  color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; transition: color 0.15s;
+  letter-spacing: -0.01em; white-space: nowrap;
+}
+.tab-btn.active { color: var(--text-primary); font-weight: 600; }
+.tab-btn.active::after {
+  content: ''; position: absolute;
+  bottom: -0.5px; left: 0; right: 0;
+  height: 2.5px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+.tab-btn:hover:not(.active) { color: var(--text-secondary); }
+
+.content-area { padding: 32px 44px 44px; }
+
+.field-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px;
+}
+
+.upload-zone {
+  border: 1.5px dashed var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-input);
+  padding: 28px 20px; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.upload-zone.filled {
+  border-style: solid;
+  border-color: var(--border-default);
+  background: var(--bg-input);
+  padding: 12px 16px;
+  flex-direction: row; justify-content: space-between; align-items: center;
+  text-align: left; cursor: default;
+}
+.upload-icon-wrap {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.upload-zone:hover .upload-icon-wrap,
+.upload-zone.drag-over .upload-icon-wrap {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+.upload-main-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.upload-sub-text { font-size: 12px; color: var(--text-muted); }
+.type-chips { display: flex; gap: 6px; justify-content: center; }
+.type-chip {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  border-radius: 4px; padding: 2px 8px;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace; letter-spacing: 0.04em;
+}
+.file-info { display: flex; align-items: center; gap: 12px; }
+.file-icon-box {
+  width: 34px; height: 34px;
+  background: var(--info-bg);
+  border: 0.5px solid var(--info-border);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.file-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.file-size { font-size: 11px; color: var(--text-muted); font-family: "JetBrains Mono", monospace; margin-top: 1px; }
+.file-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 15px; padding: 4px 6px;
+  border-radius: 4px; transition: color 0.1s, background 0.1s; line-height: 1;
+}
+.file-remove:hover { color: var(--accent); background: var(--accent-subtle); }
+
+.expander {
+  border: 0.5px solid var(--border-subtle);
+  border-radius: 12px; overflow: hidden;
+}
+.expander-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  cursor: pointer; border: none; width: 100%; text-left: left;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary);
+  transition: background 0.12s, color 0.12s;
+}
+.expander-head:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.expander-chevron { color: var(--text-muted); font-size: 9px; transition: transform 0.2s; flex-shrink: 0; }
+.expander-chevron.open { transform: rotate(180deg); }
+.expander-body {
+  padding: 14px 16px;
+  border-top: 0.5px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-elevated);
+}
+
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 13px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none; border-radius: 10px;
+  font-family: inherit; font-size: 14.5px; font-weight: 600;
+  cursor: pointer; letter-spacing: -0.01em;
+  transition: background 0.13s, box-shadow 0.13s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(91,168,130,0.2), 0 4px 16px rgba(91,168,130,0.12);
+}
+[data-theme="dark"] .btn-primary {
+  box-shadow: 0 0 0 1px rgba(107,200,152,0.15), 0 2px 8px rgba(107,200,152,0.06);
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled {
+  background: var(--bg-surface); color: var(--text-muted);
+  box-shadow: none; cursor: not-allowed;
+  opacity: 0.7;
+  border: 1px dashed var(--border-default);
+}
+
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  border: 0.5px solid var(--border-default); border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.btn-secondary:hover { background: var(--bg-surface-hover); border-color: var(--border-strong); }
+
+.btn-ghost {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 10px 14px;
+  background: transparent; color: var(--text-muted);
+  border: 0.5px solid var(--border-default); border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.btn-ghost:hover { color: var(--text-secondary); border-color: var(--border-strong); background: var(--bg-surface); }
+
+.progress-container {
+  border: 0.5px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 22px 24px;
+  background: var(--bg-surface);
+  display: flex; flex-direction: column; gap: 18px;
+}
+.progress-header { display: flex; justify-content: space-between; align-items: center; }
+.progress-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.progress-pct {
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+}
+.progress-track {
+  width: 100%; height: 4px;
+  background: var(--border-default);
+  border-radius: 99px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.progress-steps { display: flex; flex-direction: column; gap: 10px; }
+.progress-step {
+  display: flex; align-items: center; gap: 11px;
+  font-size: 13px; color: var(--text-muted);
+}
+.progress-step.done { color: var(--text-secondary); }
+.progress-step.active { color: var(--text-primary); font-weight: 600; }
+.step-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: transparent; flex-shrink: 0;
+}
+.step-dot.done { background: var(--success-bg); border-color: var(--success-border); color: var(--success); font-weight: 700; }
+.step-dot.active {
+  border-color: var(--accent);
+  animation: step-pulse 1.2s ease-in-out infinite;
+}
+.step-dot.active::after {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+}
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91,168,130,0.2); }
+  50% { box-shadow: 0 0 0 5px rgba(91,168,130,0); }
+}
+.step-done-label {
+  margin-left: auto; font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--success); font-weight: 600;
+}
+
+.alert {
+  border-radius: 10px; padding: 11px 14px;
+  font-size: 13px; line-height: 1.5;
+  display: flex; gap: 9px; align-items: flex-start;
+}
+.alert-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; font-weight: 700; }
+.alert.success { background: var(--success-bg); border: 0.5px solid var(--success-border); color: var(--success-text); }
+.alert.warning { background: var(--warning-bg); border: 0.5px solid var(--warning-border); color: var(--warning-text); }
+.alert.error   { background: var(--error-bg); border: 0.5px solid var(--error-border); color: var(--error-text); }
+.alert.info    { background: var(--info-bg); border: 0.5px solid var(--info-border); color: var(--info-text); }
+
+.result-card {
+  border: 0.5px solid var(--border-default);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(26,46,38,0.04);
+}
+.result-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-surface);
+  border-bottom: 0.5px solid var(--border-subtle);
+  gap: 12px;
+}
+.result-stats { display: flex; gap: 26px; align-items: center; }
+.stat { display: flex; flex-direction: column; }
+.stat-num {
+  font-size: 24px; font-weight: 700;
+  color: var(--text-primary); letter-spacing: -0.04em; line-height: 1;
+}
+.stat-label { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+.stat-sep { width: 1px; height: 32px; background: var(--border-default); }
+.result-card-body {
+  padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-elevated);
+}
+
+.token-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.token-pill {
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-default);
+  border-radius: 5px; padding: 3px 9px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-secondary); font-weight: 500; letter-spacing: 0.03em;
+}
+
+.caption { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+.code-area {
+  width: 100%; background: var(--bg-input);
+  border: 0.5px solid var(--border-default); border-radius: 8px;
+  padding: 12px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11.5px; color: var(--text-secondary); line-height: 1.65;
+  resize: none; outline: none;
+}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-page); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+function UploadZone({ label, sublabel, acceptChips, value, onChange }) {
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+  const handleDrop = (e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); };
+  if (value) {
+    const kb = Math.round((value.size || 0) / 1024) || Math.floor(Math.random()*180+20);
+    return (
+      <div className="upload-zone filled" onClick={(e) => e.stopPropagation()}>
+        <div className="file-info">
+          <div className="file-icon-box">📄</div>
+          <div><div className="file-name">{value.name}</div><div className="file-size">{kb} KB</div></div>
+        </div>
+        <button className="file-remove" onClick={(e) => { e.stopPropagation(); onChange(null); }}>✕</button>
+      </div>
+    );
+  }
+  return (
+    <div className={`upload-zone${drag ? ' drag-over' : ''}`}
+      onClick={() => inputRef.current.click()}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={handleDrop}>
+      <div className="upload-icon-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ stroke: drag ? 'var(--accent)' : 'var(--text-muted)' }} strokeWidth="2" strokeLinecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div className="upload-main-text">{label}</div>
+      {sublabel && <div className="upload-sub-text">{sublabel}</div>}
+      <div className="type-chips">{acceptChips.map(c => <span key={c} className="type-chip">{c}</span>)}</div>
+      <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={e => onChange(e.target.files[0] || null)} />
+    </div>
+  );
+}
+
+function Expander({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="expander">
+      <button className="expander-head" onClick={() => setOpen(o => !o)}>
+        <span>{title}</span>
+        <span className={`expander-chevron${open ? ' open' : ''}`}>▼</span>
+      </button>
+      {open && <div className="expander-body">{children}</div>}
+    </div>
+  );
+}
+
+function ProgressBlock({ steps, pct, currentStep }) {
+  return (
+    <div className="progress-container">
+      <div className="progress-header">
+        <span className="progress-label">处理中…</span>
+        <span className="progress-pct">{pct}%</span>
+      </div>
+      <div className="progress-track"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      <div className="progress-steps">
+        {steps.map((s, i) => {
+          const isDone = i < currentStep, isActive = i === currentStep;
+          return (
+            <div key={s} className={`progress-step${isDone ? ' done' : isActive ? ' active' : ''}`}>
+              <div className={`step-dot${isDone ? ' done' : isActive ? ' active' : ''}`}>{isDone && '✓'}</div>
+              {s}{isDone && <span className="step-done-label">完成</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const ANON_STEPS = ['读取文件', '识别敏感字段', '生成脱敏 token', '生成输出文件'];
+
+function AnonymizeTab() {
+  const [sourceFile, setSourceFile] = useState(null);
+  const [seedFile, setSeedFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [pct, setPct] = useState(0);
+  const [step, setStep] = useState(0);
+  const start = useCallback(() => {
+    if (!sourceFile) return;
+    setPhase('processing'); setPct(0); setStep(0);
+    [[280,18,0],[700,42,1],[1250,67,2],[1850,88,3],[2350,100,4]].forEach(([ms,p,s]) =>
+      setTimeout(() => { setPct(p); setStep(s); if (p===100) setTimeout(()=>setPhase('done'),300); }, ms));
+  }, [sourceFile]);
+  const reset = () => { setPhase('idle'); setPct(0); setStep(0); setSourceFile(null); setSeedFile(null); };
+
+  if (phase === 'processing') return <ProgressBlock steps={ANON_STEPS} pct={pct} currentStep={step} />;
+  if (phase === 'done') return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div className="result-card">
+        <div className="result-card-head">
+          <div className="result-stats">
+            <div className="stat"><span className="stat-num">42</span><span className="stat-label">处理行数</span></div>
+            <div className="stat-sep" />
+            <div className="stat"><span className="stat-num">18</span><span className="stat-label">脱敏实体</span></div>
+            <div className="stat-sep" />
+            <div className="stat"><span className="stat-num">7</span><span className="stat-label">字段类型</span></div>
+          </div>
+          <div className="alert success" style={{ padding:'4px 10px', fontSize:11 }}>
+            <span className="alert-icon">✓</span>脱敏完成
+          </div>
+        </div>
+        <div className="result-card-body">
+          <div className="caption">Token 样例</div>
+          <div className="token-row">
+            <span className="token-pill">PDA_A1B2C3D4E5F60708</span>
+            <span className="token-pill">PDA_F3E2D1C0B9A87654</span>
+            <span className="token-pill">PDA_0011223344556677</span>
+          </div>
+        </div>
+      </div>
+      <button className="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        一键打包下载
+      </button>
+      <p className="caption">ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。</p>
+      <Expander title="单独下载各文件">
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <button className="btn-secondary">下载脱敏 Excel</button>
+          <button className="btn-secondary">下载脱敏 CSV</button>
+          <button className="btn-secondary">下载匹配文件 JSON</button>
+          <button className="btn-secondary">下载匹配表 CSV</button>
+        </div>
+      </Expander>
+      <div className="alert warning">
+        <span className="alert-icon">⚠</span>
+        匹配文件包含原始敏感信息，只能保存在本地，切勿外传。
+      </div>
+      <button className="btn-ghost" onClick={reset}>处理另一个文件</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <div className="field-label">数据文件</div>
+        <UploadZone label="上传需要脱敏的数据文件" sublabel="拖拽文件至此，或点击选择" acceptChips={['CSV','XLSX']} value={sourceFile} onChange={setSourceFile} />
+      </div>
+      <Expander title="同一批次追加文件（可选）">
+        <p className="caption">上传已有 mapping.local.json 后，本批次中相同实体将沿用之前的 token，新实体继续随机生成。</p>
+        <UploadZone label="上传已有匹配文件" acceptChips={['JSON','CSV']} value={seedFile} onChange={setSeedFile} />
+      </Expander>
+      <button className="btn-primary" disabled={!sourceFile} onClick={start} style={{ marginTop:4 }}>开始脱敏</button>
+    </div>
+  );
+}
+
+function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('pda-theme-v4') || 'light');
+  const [tab, setTab] = useState('数据脱敏');
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('pda-theme-v4', theme); }, [theme]);
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+
+  return (
+    <>
+      <div className="chrome-bar">
+        <div className="chrome-dots">
+          <div className="chrome-dot" style={{ background: '#e06060' }} />
+          <div className="chrome-dot" style={{ background: '#e0b040' }} />
+          <div className="chrome-dot" style={{ background: '#40b860' }} />
+        </div>
+        <div className="chrome-url"><div className="lock-dot" />127.0.0.1:8501</div>
+      </div>
+      <div className="app-card">
+        <div className="app-header">
+          <button className="theme-toggle" onClick={toggleTheme}>
+            <span className="theme-toggle-icon light">🌙</span>
+            <span className="theme-toggle-icon dark">☀️</span>
+            <span style={{ fontSize: 11 }}>{theme === 'light' ? '深色' : '浅色'}</span>
+          </button>
+          <div className="privacy-badge">
+            <div className="badge-dot" />
+            本地运行 · 数据不出境
+          </div>
+          <h1 className="app-title">数据脱敏工具</h1>
+          <p className="app-subtitle">文件仅在本机处理，不上传服务器，不调用大模型。</p>
+        </div>
+        <div className="tab-bar">
+          {['数据脱敏','报告反脱敏'].map(t => (
+            <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>{t}</button>
+          ))}
+        </div>
+        <div className="content-area">
+          {tab === '数据脱敏' ? <AnonymizeTab key="a" /> : <AnonymizeTab key="r" />}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

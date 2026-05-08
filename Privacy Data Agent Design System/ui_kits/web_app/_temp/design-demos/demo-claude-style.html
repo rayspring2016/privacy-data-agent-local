@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据脱敏工具</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+:root {
+  --bg-page: #f7f7f5;
+  --bg-card: #ffffff;
+  --bg-chrome: #efefed;
+  --bg-surface: #fafaf9;
+  --bg-surface-hover: #f2f2f0;
+  --bg-input: #f8f8f7;
+  --bg-elevated: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-muted: #999999;
+  --border-default: #e5e5e3;
+  --border-subtle: #f0f0ef;
+  --border-strong: #d4d4d2;
+  --accent: #d269f5;
+  --accent-hover: #c45ef0;
+  --accent-subtle: #f8f0ff;
+  --accent-border: #e8c8fa;
+  --accent-soft: #f3e0ff;
+  --accent-glow: rgba(210,105,245,0.12);
+  --success: #2ecc71;
+  --success-bg: #f0fdf4;
+  --success-border: #c3edd0;
+  --success-text: #1e7a46;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #92400e;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #991b1b;
+  --info-bg: #f0f4ff;
+  --info-border: #c7d2fe;
+  --info-text: #3730a3;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);
+}
+
+[data-theme="dark"] {
+  --bg-page: #111112;
+  --bg-card: #1a1a1c;
+  --bg-chrome: #141416;
+  --bg-surface: #18181a;
+  --bg-surface-hover: #202022;
+  --bg-input: #141416;
+  --bg-elevated: #202022;
+  --text-primary: #ececed;
+  --text-secondary: #8a8a8d;
+  --text-muted: #5c5c5f;
+  --border-default: rgba(255,255,255,0.08);
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-strong: rgba(255,255,255,0.12);
+  --accent: #c67df5;
+  --accent-hover: #d08ff8;
+  --accent-subtle: rgba(198,125,245,0.08);
+  --accent-border: rgba(198,125,245,0.16);
+  --accent-soft: rgba(198,125,245,0.1);
+  --accent-glow: rgba(198,125,245,0.1);
+  --success: #3dd68c;
+  --success-bg: rgba(46,204,113,0.08);
+  --success-border: rgba(46,204,113,0.15);
+  --success-text: #5fe09e;
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,0.06);
+  --warning-border: rgba(245,158,11,0.12);
+  --warning-text: #fbbf24;
+  --error-bg: rgba(210,105,245,0.06);
+  --error-border: rgba(210,105,245,0.12);
+  --error-text: #d07ef5;
+  --info-bg: rgba(99,102,241,0.06);
+  --info-border: rgba(99,102,241,0.12);
+  --info-text: #a5b4fc;
+  --card-shadow: none;
+}
+
+body {
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 16px 80px;
+  background:
+    radial-gradient(ellipse 800px 350px at 60% -5%, var(--accent-glow) 0%, transparent 65%),
+    var(--bg-page);
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 12px; right: 18px;
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  border-radius: 20px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; align-items: center; gap: 5px;
+  color: var(--text-secondary);
+  transition: background 0.2s, border-color 0.2s;
+  z-index: 10;
+  font-family: inherit;
+}
+.theme-toggle:hover { background: var(--bg-surface-hover); border-color: var(--border-strong); }
+.theme-toggle-icon { font-size: 15px; line-height: 1; }
+[data-theme="dark"] .theme-toggle-icon.light { display: none; }
+[data-theme="dark"] .theme-toggle-icon.dark { display: inline; }
+.theme-toggle-icon.dark { display: none; }
+
+.chrome-bar {
+  width: 100%; max-width: 780px;
+  background: var(--bg-chrome);
+  border-radius: 10px 10px 0 0;
+  padding: 9px 14px;
+  display: flex; align-items: center; gap: 10px;
+  border: 0.5px solid var(--border-strong);
+  border-bottom: none;
+}
+.chrome-dots { display: flex; gap: 5px; }
+.chrome-dot { width: 11px; height: 11px; border-radius: 50%; opacity: 0.85; }
+.chrome-url {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 5px; padding: 4px 12px;
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+  border: 0.5px solid var(--border-default);
+  letter-spacing: 0.01em;
+}
+.lock-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+
+.app-card {
+  width: 100%; max-width: 780px;
+  background: var(--bg-card);
+  border-radius: 0 0 14px 14px;
+  border: 0.5px solid var(--border-strong);
+  border-top: none;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.app-card.no-chrome {
+  border-radius: 14px;
+  border-top: 0.5px solid var(--border-strong);
+}
+
+.app-header {
+  padding: 34px 40px 26px;
+  border-bottom: 0.5px solid var(--border-subtle);
+  background: var(--bg-card);
+  position: relative;
+}
+.privacy-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--success-bg);
+  border: 0.5px solid var(--success-border);
+  border-radius: 20px;
+  padding: 4px 11px; font-size: 11.5px; font-weight: 500;
+  color: var(--success-text);
+  margin-bottom: 14px; letter-spacing: 0.01em;
+}
+.badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success);
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(46,204,113,0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(46,204,113,0); }
+}
+.app-title {
+  font-size: 27px; font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 6px;
+  text-shadow: 0 1px 8px rgba(255,255,255,0.5);
+}
+[data-theme="dark"] .app-title {
+  text-shadow: none;
+}
+.app-subtitle {
+  font-size: 13.5px; color: var(--text-secondary); line-height: 1.5;
+}
+
+.tab-bar {
+  display: flex; padding: 0 40px;
+  border-bottom: 0.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.tab-btn {
+  position: relative; padding: 13px 0; margin-right: 28px;
+  font-size: 13.5px; font-weight: 500;
+  color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; transition: color 0.15s;
+  letter-spacing: -0.01em; white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.6);
+}
+[data-theme="dark"] .tab-btn {
+  text-shadow: none;
+}
+.tab-btn.active { color: var(--text-primary); font-weight: 600; text-shadow: none; }
+.tab-btn.active::after {
+  content: ''; position: absolute;
+  bottom: -0.5px; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+.tab-btn:hover:not(.active) { color: var(--text-secondary); }
+
+.content-area { padding: 28px 40px 40px; }
+
+.field-label {
+  font-size: 11.5px; font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
+}
+
+.upload-zone {
+  border: 1.5px dashed var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-input);
+  padding: 26px 20px; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.upload-zone.filled {
+  border-style: solid;
+  border-color: var(--border-default);
+  background: var(--bg-input);
+  padding: 12px 16px;
+  flex-direction: row; justify-content: space-between; align-items: center;
+  text-align: left; cursor: default;
+}
+.upload-icon-wrap {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.upload-zone:hover .upload-icon-wrap,
+.upload-zone.drag-over .upload-icon-wrap {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+.upload-main-text { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.upload-sub-text { font-size: 12px; color: var(--text-muted); }
+.type-chips { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+.type-chip {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border-default);
+  border-radius: 4px; padding: 2px 7px;
+  font-size: 10.5px; font-weight: 600;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace; letter-spacing: 0.04em;
+}
+.file-info { display: flex; align-items: center; gap: 10px; }
+.file-icon-box {
+  width: 34px; height: 34px;
+  background: var(--info-bg);
+  border: 0.5px solid var(--info-border);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.file-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.file-size { font-size: 11px; color: var(--text-muted); font-family: "JetBrains Mono", monospace; margin-top: 1px; }
+.file-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 16px; padding: 4px 6px;
+  border-radius: 4px; transition: color 0.1s, background 0.1s; line-height: 1;
+}
+.file-remove:hover { color: var(--accent); background: var(--accent-subtle); }
+
+.expander {
+  border: 0.5px solid var(--border-subtle);
+  border-radius: 10px; overflow: hidden;
+}
+.expander-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 16px;
+  background: var(--bg-surface);
+  cursor: pointer; border: none; width: 100%; text-align: left;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary);
+  transition: background 0.12s, color 0.12s;
+}
+.expander-head:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.expander-chevron { color: var(--text-muted); font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+.expander-chevron.open { transform: rotate(180deg); }
+.expander-body {
+  padding: 14px 16px;
+  border-top: 0.5px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-elevated);
+}
+
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 12px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none; border-radius: 8px;
+  font-family: inherit; font-size: 14.5px; font-weight: 600;
+  cursor: pointer; letter-spacing: -0.01em;
+  transition: background 0.13s, box-shadow 0.13s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(210,105,245,0.2), 0 4px 14px rgba(210,105,245,0.15);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+[data-theme="dark"] .btn-primary {
+  box-shadow: 0 0 0 1px rgba(198,125,245,0.2), 0 2px 8px rgba(198,125,245,0.08);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled {
+  background: var(--bg-surface); color: var(--text-muted);
+  box-shadow: none; cursor: not-allowed;
+  opacity: 0.7;
+  border: 1px dashed var(--border-default);
+}
+
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 14px;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  border: 0.5px solid var(--border-default); border-radius: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.btn-secondary:hover { background: var(--bg-surface-hover); border-color: var(--border-strong); }
+
+.btn-ghost {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 14px;
+  background: transparent; color: var(--text-muted);
+  border: 0.5px solid var(--border-default); border-radius: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.btn-ghost:hover { color: var(--text-secondary); border-color: var(--border-strong); background: var(--bg-surface); }
+
+.progress-container {
+  border: 0.5px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 20px 22px;
+  background: var(--bg-surface);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.progress-header { display: flex; justify-content: space-between; align-items: center; }
+.progress-label { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.progress-pct {
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+  text-shadow: 0 1px 2px rgba(210,105,245,0.25);
+}
+[data-theme="dark"] .progress-pct {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.progress-track {
+  width: 100%; height: 4px;
+  background: var(--border-default);
+  border-radius: 99px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.45s cubic-bezier(0.4,0,0.2,1);
+}
+.progress-steps { display: flex; flex-direction: column; gap: 9px; }
+.progress-step {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; color: var(--text-muted); transition: color 0.2s;
+}
+.progress-step.done { color: var(--text-secondary); }
+.progress-step.active { color: var(--text-primary); font-weight: 600; }
+.step-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: transparent; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.step-dot.done { background: var(--success-bg); border-color: var(--success-border); color: var(--success); font-weight: 700; }
+.step-dot.active {
+  border-color: var(--accent);
+  animation: step-pulse 1.2s ease-in-out infinite;
+}
+.step-dot.active::after {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+}
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(210,105,245,0.25); }
+  50% { box-shadow: 0 0 0 5px rgba(210,105,245,0); }
+}
+.step-done-label {
+  margin-left: auto; font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--success); font-weight: 600; letter-spacing: 0.02em;
+}
+
+.alert {
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 13.5px; line-height: 1.5;
+  display: flex; gap: 9px; align-items: flex-start;
+}
+.alert-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; font-weight: 700; }
+.alert.success { background: var(--success-bg); border: 0.5px solid var(--success-border); color: var(--success-text); }
+.alert.warning { background: var(--warning-bg); border: 0.5px solid var(--warning-border); color: var(--warning-text); }
+.alert.error   { background: var(--error-bg); border: 0.5px solid var(--error-border); color: var(--error-text); }
+.alert.info    { background: var(--info-bg); border: 0.5px solid var(--info-border); color: var(--info-text); }
+
+.result-card {
+  border: 0.5px solid var(--border-default);
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+[data-theme="dark"] .result-card { box-shadow: none; }
+.result-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-surface);
+  border-bottom: 0.5px solid var(--border-subtle);
+  gap: 12px;
+}
+.result-stats { display: flex; gap: 24px; align-items: center; }
+.stat { display: flex; flex-direction: column; }
+.stat-num {
+  font-size: 24px; font-weight: 700;
+  color: var(--text-primary); letter-spacing: -0.04em; line-height: 1;
+}
+.stat-label { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+.stat-sep { width: 1px; height: 32px; background: var(--border-default); }
+.result-card-body {
+  padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-elevated);
+}
+
+.token-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.token-pill {
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-default);
+  border-radius: 5px; padding: 3px 9px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-secondary); font-weight: 500; letter-spacing: 0.04em;
+}
+
+.caption { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+.code-area {
+  width: 100%; background: var(--bg-input);
+  border: 0.5px solid var(--border-default); border-radius: 7px;
+  padding: 12px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.7;
+  resize: none; outline: none;
+}
+.code-area:focus { border-color: var(--border-strong); }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-page); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+function UploadZone({ label, sublabel, acceptChips, value, onChange }) {
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+  const handleDrop = (e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); };
+  if (value) {
+    const kb = Math.round((value.size || 0) / 1024) || Math.floor(Math.random()*180+20);
+    return (
+      <div className="upload-zone filled" onClick={(e) => e.stopPropagation()}>
+        <div className="file-info">
+          <div className="file-icon-box">📄</div>
+          <div><div className="file-name">{value.name}</div><div className="file-size">{kb} KB</div></div>
+        </div>
+        <button className="file-remove" onClick={(e) => { e.stopPropagation(); onChange(null); }}>✕</button>
+      </div>
+    );
+  }
+  return (
+    <div className={`upload-zone${drag ? ' drag-over' : ''}`}
+      onClick={() => inputRef.current.click()}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={handleDrop}>
+      <div className="upload-icon-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ stroke: drag ? 'var(--accent)' : 'var(--text-muted)' }} strokeWidth="2" strokeLinecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div className="upload-main-text">{label}</div>
+      {sublabel && <div className="upload-sub-text">{sublabel}</div>}
+      <div className="type-chips">{acceptChips.map(c => <span key={c} className="type-chip">{c}</span>)}</div>
+      <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={e => onChange(e.target.files[0] || null)} />
+    </div>
+  );
+}
+
+function Expander({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="expander">
+      <button className="expander-head" onClick={() => setOpen(o => !o)}>
+        <span>{title}</span>
+        <span className={`expander-chevron${open ? ' open' : ''}`}>▼</span>
+      </button>
+      {open && <div className="expander-body">{children}</div>}
+    </div>
+  );
+}
+
+function ProgressBlock({ steps, pct, currentStep }) {
+  return (
+    <div className="progress-container">
+      <div className="progress-header">
+        <span className="progress-label">处理中…</span>
+        <span className="progress-pct">{pct}%</span>
+      </div>
+      <div className="progress-track"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      <div className="progress-steps">
+        {steps.map((s, i) => {
+          const isDone = i < currentStep, isActive = i === currentStep;
+          return (
+            <div key={s} className={`progress-step${isDone ? ' done' : isActive ? ' active' : ''}`}>
+              <div className={`step-dot${isDone ? ' done' : isActive ? ' active' : ''}`}>{isDone && '✓'}</div>
+              {s}{isDone && <span className="step-done-label">完成</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const ANON_STEPS = ['读取文件', '识别敏感字段', '生成脱敏 token', '生成输出文件'];
+const RESTORE_STEPS = ['读取报告文件', '加载匹配文件', '替换 token 为原始值', '生成反脱敏报告'];
+
+function AnonymizeTab() {
+  const [sourceFile, setSourceFile] = useState(null);
+  const [seedFile, setSeedFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [pct, setPct] = useState(0);
+  const [step, setStep] = useState(0);
+  const start = useCallback(() => {
+    if (!sourceFile) return;
+    setPhase('processing'); setPct(0); setStep(0);
+    [[280,18,0],[700,42,1],[1250,67,2],[1850,88,3],[2350,100,4]].forEach(([ms,p,s]) =>
+      setTimeout(() => { setPct(p); setStep(s); if (p===100) setTimeout(()=>setPhase('done'),300); }, ms));
+  }, [sourceFile]);
+  const reset = () => { setPhase('idle'); setPct(0); setStep(0); setSourceFile(null); setSeedFile(null); };
+
+  if (phase === 'processing') return <ProgressBlock steps={ANON_STEPS} pct={pct} currentStep={step} />;
+  if (phase === 'done') return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div className="result-card">
+        <div className="result-card-head">
+          <div className="result-stats">
+            <div className="stat"><span className="stat-num">42</span><span className="stat-label">处理行数</span></div>
+            <div className="stat-sep" />
+            <div className="stat"><span className="stat-num">18</span><span className="stat-label">脱敏实体</span></div>
+            <div className="stat-sep" />
+            <div className="stat"><span className="stat-num">7</span><span className="stat-label">字段类型</span></div>
+          </div>
+          <div className="alert success" style={{ padding:'5px 10px', fontSize:12 }}>
+            <span className="alert-icon">✓</span>脱敏完成
+          </div>
+        </div>
+        <div className="result-card-body">
+          <div className="caption">Token 样例</div>
+          <div className="token-row">
+            <span className="token-pill">PDA_A1B2C3D4E5F60708</span>
+            <span className="token-pill">PDA_F3E2D1C0B9A87654</span>
+            <span className="token-pill">PDA_0011223344556677</span>
+          </div>
+        </div>
+      </div>
+      <button className="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        一键打包下载
+      </button>
+      <p className="caption">ZIP 包含脱敏 Excel + 匹配文件 + 使用说明，反脱敏时只需上传其中的 mapping.local.json。</p>
+      <Expander title="单独下载各文件">
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <button className="btn-secondary">下载脱敏 Excel</button>
+          <button className="btn-secondary">下载脱敏 CSV</button>
+          <button className="btn-secondary">下载匹配文件 JSON</button>
+          <button className="btn-secondary">下载匹配表 CSV</button>
+        </div>
+      </Expander>
+      <div className="alert warning">
+        <span className="alert-icon">⚠</span>
+        匹配文件包含原始敏感信息，只能保存在本地，切勿外传。
+      </div>
+      <button className="btn-ghost" onClick={reset}>处理另一个文件</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <div className="field-label">数据文件</div>
+        <UploadZone label="上传需要脱敏的数据文件" sublabel="拖拽文件至此，或点击选择" acceptChips={['CSV','XLSX']} value={sourceFile} onChange={setSourceFile} />
+      </div>
+      <Expander title="同一批次追加文件（可选）">
+        <p className="caption">上传已有 mapping.local.json 后，本批次中相同实体将沿用之前的 token，新实体继续随机生成。</p>
+        <UploadZone label="上传已有匹配文件" acceptChips={['JSON','CSV']} value={seedFile} onChange={setSeedFile} />
+      </Expander>
+      <button className="btn-primary" disabled={!sourceFile} onClick={start} style={{ marginTop:4 }}>开始脱敏</button>
+    </div>
+  );
+}
+
+function RestoreTab() {
+  const [reportFile, setReportFile] = useState(null);
+  const [mappingFile, setMappingFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [pct, setPct] = useState(0);
+  const [step, setStep] = useState(0);
+  const ready = reportFile && mappingFile;
+  const start = useCallback(() => {
+    if (!ready) return;
+    setPhase('processing'); setPct(0); setStep(0);
+    [[250,22,0],[650,50,1],[1100,78,2],[1600,100,3]].forEach(([ms,p,s]) =>
+      setTimeout(() => { setPct(p); setStep(s); if (p===100) setTimeout(()=>setPhase('done'),300); }, ms));
+  }, [ready]);
+  const reset = () => { setPhase('idle'); setPct(0); setStep(0); setReportFile(null); setMappingFile(null); };
+  const restored = `# 数据分析报告\n\n张三 在 华东销售一部 负责 上海春雷科技有限公司，建议提高资源投入。\n\n建议复盘上海春雷科技有限公司的成交过程，并让张三输出方法论。`;
+
+  if (phase === 'processing') return <ProgressBlock steps={RESTORE_STEPS} pct={pct} currentStep={step} />;
+  if (phase === 'done') return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div className="alert success"><span className="alert-icon">✓</span>报告恢复完成。原始值已从匹配文件中还原。</div>
+      <button className="btn-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载反脱敏报告
+      </button>
+      <Expander title="预览恢复结果" defaultOpen={true}>
+        <textarea className="code-area" readOnly value={restored} rows={7} />
+      </Expander>
+      <button className="btn-ghost" onClick={reset}>处理另一份报告</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <div className="field-label">报告文件</div>
+        <UploadZone label="上传待恢复的报告文件" sublabel="拖拽文件至此，或点击选择" acceptChips={['MD','TXT','HTML','DOCX','PPTX']} value={reportFile} onChange={setReportFile} />
+      </div>
+      <div>
+        <div className="field-label">匹配文件</div>
+        <UploadZone label="上传 mapping.local.json 或 mapping_table.csv" acceptChips={['JSON','CSV']} value={mappingFile} onChange={setMappingFile} />
+      </div>
+      {reportFile && !mappingFile && (
+        <div className="alert info"><span className="alert-icon">ℹ</span>还需上传匹配文件才能开始反脱敏。</div>
+      )}
+      <button className="btn-primary" disabled={!ready} onClick={start} style={{ marginTop:4 }}>开始反脱敏</button>
+    </div>
+  );
+}
+
+function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('pda-theme-claude') || 'light');
+  const [tab, setTab] = useState('数据脱敏');
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('pda-theme-claude', theme); }, [theme]);
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+
+  return (
+    <>
+      <div className="chrome-bar">
+        <div className="chrome-dots">
+          <div className="chrome-dot" style={{ background: '#e06060' }} />
+          <div className="chrome-dot" style={{ background: '#e0b040' }} />
+          <div className="chrome-dot" style={{ background: '#40b860' }} />
+        </div>
+        <div className="chrome-url"><div className="lock-dot" />127.0.0.1:8501</div>
+      </div>
+      <div className="app-card">
+        <div className="app-header">
+          <button className="theme-toggle" onClick={toggleTheme} title="切换主题">
+            <span className="theme-toggle-icon light">🌙</span>
+            <span className="theme-toggle-icon dark">☀️</span>
+            <span style={{ fontSize: 11 }}>{theme === 'light' ? '深色' : '浅色'}</span>
+          </button>
+          <div className="privacy-badge">
+            <div className="badge-dot" />
+            本地运行 · 数据不出境
+          </div>
+          <h1 className="app-title">数据脱敏工具</h1>
+          <p className="app-subtitle">文件仅在本机处理，不上传服务器，不调用大模型。</p>
+        </div>
+        <div className="tab-bar">
+          {['数据脱敏','报告反脱敏'].map(t => (
+            <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>{t}</button>
+          ))}
+        </div>
+        <div className="content-area">
+          {tab === '数据脱敏' ? <AnonymizeTab key="a" /> : <RestoreTab key="r" />}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

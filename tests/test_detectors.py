@@ -124,3 +124,31 @@ def test_salary_column_non_salary_filtered():
         result = detect_column_entity_type(col)
         # 只要不是SALARY就行（可能是CUSTOMER/DEPARTMENT/EMPLOYEE/None）
         assert result != EntityType.SALARY, f"{col!r} should NOT be SALARY, got {result}"
+
+
+def test_pure_digit_employee_id_requires_column_context():
+    """Pure-digit IDs (e.g. 001234) must be in an EMPLOYEE_ID column to be detected."""
+    from privacy_data_agent.detectors import detect_cell_entity_type
+    from privacy_data_agent.models import EntityType
+
+    # Without column context: too ambiguous, should NOT detect
+    assert detect_cell_entity_type("001234") is None
+    assert detect_cell_entity_type("1234567") is None
+    assert detect_cell_entity_type("000001") is None
+
+    # In EMPLOYEE_ID column: should detect
+    assert detect_cell_entity_type("001234", column_type=EntityType.EMPLOYEE_ID) == EntityType.EMPLOYEE_ID
+    assert detect_cell_entity_type("1234567", column_type=EntityType.EMPLOYEE_ID) == EntityType.EMPLOYEE_ID
+    assert detect_cell_entity_type("000001", column_type=EntityType.EMPLOYEE_ID) == EntityType.EMPLOYEE_ID
+
+    # In non-EMPLOYEE_ID column: should NOT detect (avoids false positives like years/codes)
+    assert detect_cell_entity_type("001234", column_type=EntityType.CUSTOMER) is None
+    assert detect_cell_entity_type("001234", column_type=EntityType.DEPARTMENT) is None
+    assert detect_cell_entity_type("001234", column_type=EntityType.SALARY) is None
+
+    # Too short (<4 digits): ambiguous, should NOT detect even in EMPLOYEE_ID column
+    assert detect_cell_entity_type("123", column_type=EntityType.EMPLOYEE_ID) is None
+    assert detect_cell_entity_type("1234", column_type=EntityType.EMPLOYEE_ID) == EntityType.EMPLOYEE_ID
+
+    # Too long (>10 digits): probably not an employee ID
+    assert detect_cell_entity_type("12345678901", column_type=EntityType.EMPLOYEE_ID) is None

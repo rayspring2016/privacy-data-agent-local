@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 16px; }
+  .swatch { height: 48px; border-radius: 4px; }
+  .label-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 20px; }
+  .label { font-size: 10px; color: #6b6b6b; text-align: center; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .accent-row { display: flex; gap: 8px; margin-bottom: 16px; align-items: stretch; }
+  .accent-swatch { height: 48px; border-radius: 4px; flex: 1; display: flex; align-items: flex-end; padding: 5px 8px; }
+  .accent-label { font-size: 10px; font-weight: 600; color: #fff; }
+  .accent-label-dark { color: #262730; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Neutrals</div>
+<div class="grid">
+  <div class="swatch" style="background:#1f1f1f;"></div>
+  <div class="swatch" style="background:#262730;"></div>
+  <div class="swatch" style="background:#3d3d3d;"></div>
+  <div class="swatch" style="background:#555555;"></div>
+  <div class="swatch" style="background:#6b6b6b;"></div>
+  <div class="swatch" style="background:#808495;"></div>
+  <div class="swatch" style="background:#bbbccc;"></div>
+  <div class="swatch" style="background:#d6d9e4;"></div>
+  <div class="swatch" style="background:#e6e9ef;"></div>
+  <div class="swatch" style="background:#f0f2f6; border: 1px solid #e6e9ef;"></div>
+</div>
+<div class="label-row">
+  <div class="label">900</div><div class="label">800</div><div class="label">700</div>
+  <div class="label">600</div><div class="label">500</div><div class="label">400</div>
+  <div class="label">300</div><div class="label">200</div><div class="label">100</div>
+  <div class="label">50</div>
+</div>
+
+<div class="section-title">Primary Accent</div>
+<div class="accent-row">
+  <div class="accent-swatch" style="background:#ff4b4b;"><span class="accent-label">#ff4b4b · primary</span></div>
+  <div class="accent-swatch" style="background:#e03e3e;"><span class="accent-label">#e03e3e · hover</span></div>
+  <div class="accent-swatch" style="background:#c73434;"><span class="accent-label">#c73434 · active</span></div>
+  <div class="accent-swatch" style="background:#fff0f0; border:1px solid #f9b6b6;"><span class="accent-label" style="color:#c73434;">#fff0f0 · subtle</span></div>
+</div>
+
+<div class="section-title">Backgrounds</div>
+<div class="accent-row">
+  <div class="accent-swatch" style="background:#ffffff; border:1px solid #e6e9ef;"><span class="accent-label-dark accent-label" style="font-size:10px;">#fff · page</span></div>
+  <div class="accent-swatch" style="background:#f0f2f6;"><span class="accent-label-dark accent-label" style="font-size:10px;">#f0f2f6 · secondary</span></div>
+  <div class="accent-swatch" style="background:#fafafa; border:1px solid #e6e9ef;"><span class="accent-label-dark accent-label" style="font-size:10px;">#fafafa · tertiary</span></div>
+  <div class="accent-swatch" style="background:#f8f9fa; border:1px solid #e6e9ef;"><span class="accent-label-dark accent-label" style="font-size:10px;">#f8f9fa · code</span></div>
+</div>
+
+</body>
+</html>

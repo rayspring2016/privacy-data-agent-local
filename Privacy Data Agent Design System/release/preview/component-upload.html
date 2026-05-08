@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Source Sans Pro", "PingFang SC", sans-serif; background: #fff; padding: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #808495; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 16px; }
+  .demo-block { background: #fafafa; border: 1px solid #e6e9ef; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+  .demo-label { font-size: 10px; color: #bbbccc; font-family: monospace; margin-top: 8px; }
+
+  /* Upload area */
+  .upload-zone { border: 2px dashed #d0d3e0; border-radius: 6px; background: #fafbfc; padding: 28px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+  .upload-zone:hover { border-color: #ff4b4b; background: #fff5f5; }
+  .upload-zone.active { border-color: #ff4b4b; background: #fff5f5; }
+  .upload-zone.filled { border: 1px solid #d0d3e0; background: #f0f2f6; border-style: solid; }
+
+  .upload-icon { width: 32px; height: 32px; opacity: 0.35; }
+  .upload-primary { font-size: 0.875rem; font-weight: 600; color: #262730; }
+  .upload-sub { font-size: 0.8rem; color: #808495; }
+  .upload-types { font-size: 0.75rem; color: #bbbccc; font-family: monospace; }
+
+  .file-chip { display: inline-flex; align-items: center; gap: 6px; background: #e6e9ef; border-radius: 4px; padding: 4px 10px; font-size: 0.8rem; color: #262730; }
+  .file-chip-icon { font-size: 14px; }
+  .file-chip-x { color: #808495; font-size: 12px; cursor: pointer; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="section-title">Empty state — drag &amp; drop zone</div>
+<div class="demo-block">
+  <div class="upload-zone">
+    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#808495" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="upload-primary">选择需要脱敏的数据文件</div>
+    <div class="upload-sub">拖拽文件至此或点击选择</div>
+    <div class="upload-types">CSV · XLSX</div>
+  </div>
+  <div class="demo-label">st.file_uploader · empty · type=["csv","xlsx"]</div>
+</div>
+
+<div class="section-title">Hover state</div>
+<div class="demo-block">
+  <div class="upload-zone active">
+    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#ff4b4b" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="upload-primary" style="color:#ff4b4b;">拖放到此处</div>
+    <div class="upload-types">CSV · XLSX</div>
+  </div>
+  <div class="demo-label">hover / drag-over state</div>
+</div>
+
+<div class="section-title">Filled — file selected</div>
+<div class="demo-block">
+  <div class="upload-zone filled" style="flex-direction:row; justify-content:space-between; padding:12px 16px; text-align:left; align-items:center;">
+    <div class="file-chip">
+      <span class="file-chip-icon">📄</span>
+      <span>hr_data_2025q1.xlsx</span>
+      <span class="file-chip-x">✕</span>
+    </div>
+    <div class="upload-sub">42 KB</div>
+  </div>
+  <div class="demo-label">st.file_uploader · file selected state</div>
+</div>
+
+<div class="section-title">Optional / seed upload (inside expander)</div>
+<div class="demo-block" style="background:#fff;">
+  <details style="border:1px solid #e6e9ef; border-radius:6px; overflow:hidden;">
+    <summary style="padding:10px 14px; font-size:0.875rem; font-weight:600; color:#262730; cursor:pointer; background:#fafafa; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+      同一批次追加文件？上传已有匹配文件（可选）
+      <span style="color:#808495; font-size:12px;">▼</span>
+    </summary>
+    <div style="padding:12px 14px; background:#fff; display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:0.8rem; color:#6b6b6b;">上传后，本批次中出现的相同姓名/部门将沿用之前的 token，新实体继续随机生成。</div>
+      <div class="upload-zone" style="padding:16px;">
+        <div class="upload-primary" style="font-size:0.8rem;">选择 mapping.local.json 或 mapping_table.csv</div>
+        <div class="upload-types">JSON · CSV</div>
+      </div>
+    </div>
+  </details>
+  <div class="demo-label">st.expander (optional) + st.file_uploader · type=["json","csv"]</div>
+</div>
+
+</body>
+</html>

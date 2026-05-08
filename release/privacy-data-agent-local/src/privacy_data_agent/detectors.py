@@ -9,8 +9,9 @@ PHONE_RE = re.compile(r"^(?:\+?86[- ]?)?1[3-9]\d{9}$")
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 LICENSE_PLATE_RE = re.compile(r"^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉贵粤青藏川宁琼使领][A-Z][A-Z0-9]{5}$")
 # Employee / work number with letter prefix (e.g. EMP0012, A12345).
-# Pure-digit IDs (e.g. 001234) are too ambiguous without column context; use column hints instead.
 EMPLOYEE_ID_RE = re.compile(r"^[A-Za-z]{1,3}\d{4,10}$")
+# Pure-digit employee ID (e.g. 001234, 1234567) — only detected in EMPLOYEE_ID column context.
+PURE_DIGIT_EMPLOYEE_ID_RE = re.compile(r"^[0-9]{4,10}$")
 NON_PERSON_REN_COLUMNS = ("人数", "人均", "人次", "人工", "人效", "人天")
 # 绩效考核/评分列包含"绩效"但不是薪酬数字（绩效工资才是）
 NON_SALARY_COLUMNS = ("评分", "等级", "考核", "评估", "评价", "档次")
@@ -297,10 +298,22 @@ DETECTORS_BY_RE = [
 ]
 
 
-def detect_cell_entity_type(value: object) -> EntityType | None:
+def detect_cell_entity_type(value: object, column_type: EntityType | None = None) -> EntityType | None:
+    """
+    Detect entity type from cell value.
+    When column_type is EMPLOYEE_ID, also accepts pure-digit IDs (e.g. 001234, 1234567)
+    to handle unmasked numeric employee numbers in ID columns.
+    """
     text = "" if value is None else str(value).strip()
     if not text:
         return None
+
+    # Pure-digit employee ID: only detected in EMPLOYEE_ID column context.
+    # 4–10 digit strings are too ambiguous in general (could be any number),
+    # but in a 工号/员工编号 column they are almost certainly employee IDs.
+    if column_type == EntityType.EMPLOYEE_ID and PURE_DIGIT_EMPLOYEE_ID_RE.match(text):
+        return EntityType.EMPLOYEE_ID
+
     for pattern, entity_type in DETECTORS_BY_RE:
         if pattern.match(text):
             # CHINESE_NAME_RE 用百家姓白名单二次验证

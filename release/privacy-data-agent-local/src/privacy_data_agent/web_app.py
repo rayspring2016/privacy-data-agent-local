@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
-VERSION = "1.10.0"
+VERSION = "1.12.0"
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -965,7 +966,51 @@ def render_anonymize() -> None:
         )
 
     if has_multi or source_file is not None:
-        st.markdown("### 第二步：配置处理选项（可选）")
+        st.markdown("### 第二步：处理前预览（可选）")
+
+        # v1.12.0: D8 — Pre-anonymization preview stats
+        with st.expander("📊 预览数据概览与实体分布", expanded=False):
+            from privacy_data_agent.detectors import detect_column_entity_type
+            from privacy_data_agent.models import EntityType
+            import pandas as pd
+
+            def _preview_single_file(uploaded_file) -> pd.DataFrame:
+                suffix = Path(uploaded_file.name).suffix.lower()
+                buffer = BytesIO(uploaded_file.getvalue())
+                if suffix == ".csv":
+                    df = pd.read_csv(buffer, nrows=5, encoding="utf-8-sig")
+                elif suffix == ".xlsx":
+                    df = pd.read_excel(buffer, nrows=5, header=None, engine="openpyxl")
+                else:
+                    return pd.DataFrame()
+                col_info = []
+                for col in df.columns:
+                    col_name = str(col) if not isinstance(col, int) else f"列{col+1}"
+                    entity = detect_column_entity_type(col_name)
+                    col_info.append({
+                        "列名": col_name,
+                        "实体类型": entity.value if entity else "—",
+                        "示例值": str(df[col].dropna().iloc[0])[:20] if len(df[col].dropna()) > 0 else "—",
+                    })
+                return pd.DataFrame(col_info)
+
+            if has_multi:
+                for f in st.session_state.anonymize_files:
+                    preview_df = _preview_single_file(f)
+                    st.markdown(f"**📄 {f.name}**")
+                    if not preview_df.empty:
+                        st.dataframe(preview_df, use_container_width=True, hide_index=True)
+                    else:
+                        st.caption("（DOCX/PDF 格式暂不支持预览）")
+                    st.divider()
+            else:
+                preview_df = _preview_single_file(source_file)
+                if not preview_df.empty:
+                    st.dataframe(preview_df, use_container_width=True, hide_index=True)
+                else:
+                    st.caption("（DOCX/PDF 格式暂不支持预览）")
+
+        st.markdown("### 第三步：配置处理选项（可选）")
 
         with st.expander("同一批次追加文件？上传已有匹配文件（可选）", expanded=False):
             st.markdown(
