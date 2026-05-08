@@ -10,10 +10,12 @@ from pydantic import BaseModel, ConfigDict
 
 from privacy_data_agent.anonymizer import AnonymizerState
 from privacy_data_agent.detectors import (
-    detect_cell_entity_type,
     detect_column_entity_type,
+    detect_high_confidence_cell_entity_type,
     detect_header_row,
+    detect_optional_column_entity_type,
     detect_label_value_layout,
+    is_pass_through_column,
     resolve_entity_from_label,
     CHINESE_NAME_RE,
     _looks_like_chinese_name,
@@ -60,6 +62,9 @@ def anonymize_xlsx_bytes(
     content: bytes,
     seed_mapping: MappingFile | None = None,
     header_row: int | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
 ) -> WorkbookAnonymizeResult:
     workbook = load_workbook(BytesIO(content))
     state = AnonymizerState(seed_mapping=seed_mapping)
@@ -85,7 +90,12 @@ def anonymize_xlsx_bytes(
                 value_text = str(value_cell.value).strip()
                 if not label_text or not value_text:
                     continue
-                entity_type = resolve_entity_from_label(label_text)
+                entity_type = resolve_entity_from_label(
+                    label_text,
+                    anonymize_job_title=anonymize_job_title,
+                    anonymize_department=anonymize_department,
+                    anonymize_region=anonymize_region,
+                )
                 if entity_type is None:
                     continue
                 if entity_type == EntityType.EMPLOYEE:
@@ -115,7 +125,17 @@ def anonymize_xlsx_bytes(
                     text = str(cell.value).strip()
                     if not text:
                         continue
-                    column_type = detect_column_entity_type(header_by_column.get(cell.column, ""))
+                    column_name = header_by_column.get(cell.column, "")
+                    if is_pass_through_column(
+                        column_name,
+                        anonymize_job_title=anonymize_job_title,
+                        anonymize_department=anonymize_department,
+                        anonymize_region=anonymize_region,
+                    ):
+                        continue
+                    column_type = detect_column_entity_type(column_name)
+                    if column_type is None and anonymize_job_title:
+                        column_type = detect_optional_column_entity_type(column_name)
                     if column_type == EntityType.EMPLOYEE:
                         segments = _split_person_cell(text)
                         if len(segments) <= 1:
@@ -129,7 +149,14 @@ def anonymize_xlsx_bytes(
                                     result = result.replace(seg, token, 1)
                             cell.value = result
                     else:
-                        entity_type = column_type or detect_cell_entity_type(text, column_type=column_type)
+                        # 列类型已知时：EMPLOYEE 已在上面处理；
+                        # 其他类型（JOB_TITLE/DEPARTMENT 等）直接用 column_type，不做内容二次校验。
+                        # 当 column_type=None 时，用 detect_high_confidence_cell_entity_type 做回退检测。
+                        entity_type = (
+                            None
+                            if column_type == EntityType.DEPARTMENT and not anonymize_department
+                            else column_type
+                        ) or detect_high_confidence_cell_entity_type(text)
                         if entity_type is None:
                             continue
                         cell.value = state.token_for(entity_type, text)
@@ -150,9 +177,19 @@ def anonymize_xlsx_file(
     output_path: str | Path,
     seed_mapping: MappingFile | None = None,
     header_row: int | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
 ) -> WorkbookAnonymizeResult:
     content = Path(input_path).read_bytes()
-    result = anonymize_xlsx_bytes(content, seed_mapping=seed_mapping, header_row=header_row)
+    result = anonymize_xlsx_bytes(
+        content,
+        seed_mapping=seed_mapping,
+        header_row=header_row,
+        anonymize_job_title=anonymize_job_title,
+        anonymize_department=anonymize_department,
+        anonymize_region=anonymize_region,
+    )
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(result.workbook_bytes)
     return result

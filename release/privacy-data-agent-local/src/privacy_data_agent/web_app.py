@@ -646,6 +646,9 @@ def render_anonymize() -> None:
         ("seed_file", None),
         ("header_mode", "自动检测"),
         ("custom_header_row", 1),
+        ("anonymize_job_title", False),
+        ("anonymize_department", True),
+        ("anonymize_region", True),
         ("processing", False),
         ("anonymize_result", None),
         ("anonymize_batch_result", None),  # v1.11.0: batch results
@@ -694,6 +697,9 @@ def render_anonymize() -> None:
                         first_seed_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
                         header_row=_header_row,
                         encryption_key=st.session_state.encryption_key,
+                        anonymize_job_title=st.session_state.anonymize_job_title,
+                        anonymize_department=st.session_state.anonymize_department,
+                        anonymize_region=st.session_state.anonymize_region,
                     )
                     st.session_state.anonymize_batch_result = batch_result
                     st.session_state.processing = False
@@ -706,6 +712,9 @@ def render_anonymize() -> None:
                         seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
                         header_row=_header_row,
                         encryption_key=st.session_state.encryption_key,
+                        anonymize_job_title=st.session_state.anonymize_job_title,
+                        anonymize_department=st.session_state.anonymize_department,
+                        anonymize_region=st.session_state.anonymize_region,
                     )
                     st.session_state.anonymize_result = result
                     st.session_state.processing = False
@@ -776,6 +785,9 @@ def render_anonymize() -> None:
                         "seed_file": None,
                         "header_mode": "自动检测",
                         "custom_header_row": 1,
+                        "anonymize_job_title": False,
+                        "anonymize_department": True,
+                        "anonymize_region": True,
                         "anonymize_batch_result": None,
                         "anonymize_result": None,
                     }),
@@ -871,6 +883,7 @@ def render_anonymize() -> None:
                         "seed_file": None,
                         "header_mode": "自动检测",
                         "custom_header_row": 1,
+                        "anonymize_job_title": False,
                         "anonymize_result": None,
                     }),
                     key="process_another",
@@ -920,9 +933,9 @@ def render_anonymize() -> None:
                         data=result["anonymized_csv"],
                         file_name=f"{result['stem']}_anonymized.csv",
                         mime="text/csv",
-                    use_container_width=True,
-                    key="download_csv",
-                )
+                        use_container_width=True,
+                        key="download_csv",
+                    )
                 st.download_button(
                     "匹配表 CSV",
                     data=result["mapping_table_csv"],
@@ -949,8 +962,9 @@ def render_anonymize() -> None:
         key="multi_file_uploader",
         label_visibility="collapsed",
     )
+    st.session_state.anonymize_files = list(multi_files or [])
+    has_multi = bool(st.session_state.anonymize_files)
     if multi_files:
-        st.session_state.anonymize_files = list(multi_files)
         st.success(f"已选择 {len(multi_files)} 个文件：")
         for f in multi_files:
             st.write(f"  • {f.name} ({f.size / 1024:.1f} KB)")
@@ -963,8 +977,11 @@ def render_anonymize() -> None:
         label_visibility="collapsed",
     )
 
+    st.session_state.anonymize_file = source_file
+    has_single = st.session_state.anonymize_file is not None
+    has_file = has_single or has_multi
+
     if source_file is not None:
-        st.session_state.anonymize_file = source_file
         st.markdown(
             f"""
             <div class="pda-selected-file">
@@ -975,12 +992,17 @@ def render_anonymize() -> None:
             unsafe_allow_html=True,
         )
 
-    if has_multi or source_file is not None:
+    if has_file:
         st.markdown("### 第二步：处理前预览（可选）")
 
         # v1.12.0: D8 — Pre-anonymization preview stats
         with st.expander("📊 预览数据概览与实体分布", expanded=False):
-            from privacy_data_agent.detectors import detect_column_entity_type
+            from privacy_data_agent.detectors import (
+                detect_column_entity_type,
+                detect_header_row,
+                detect_optional_column_entity_type,
+                is_pass_through_column,
+            )
             from privacy_data_agent.models import EntityType
             import pandas as pd
 
@@ -988,18 +1010,43 @@ def render_anonymize() -> None:
                 suffix = Path(uploaded_file.name).suffix.lower()
                 buffer = BytesIO(uploaded_file.getvalue())
                 if suffix == ".csv":
-                    df = pd.read_csv(buffer, nrows=5, encoding="utf-8-sig")
+                    lines = []
+                    for _ in range(3):
+                        line = buffer.readline()
+                        if line:
+                            lines.append(line.decode("utf-8-sig").strip())
+                    buffer.seek(0)
+                    header_row = detect_header_row([line.split(",") for line in lines]) if lines else 1
+                    df = pd.read_csv(buffer, nrows=5, encoding="utf-8-sig", header=max(0, header_row - 1))
                 elif suffix == ".xlsx":
-                    df = pd.read_excel(buffer, nrows=5, header=None, engine="openpyxl")
+                    raw = pd.read_excel(buffer, nrows=3, header=None, engine="openpyxl")
+                    buffer.seek(0)
+                    raw_rows = [
+                        [str(c) if pd.notna(c) else "" for c in raw.iloc[i].tolist()]
+                        for i in range(min(3, len(raw)))
+                    ]
+                    header_row = detect_header_row(raw_rows)
+                    df = pd.read_excel(buffer, nrows=5, header=max(0, header_row - 1), engine="openpyxl")
                 else:
                     return pd.DataFrame()
                 col_info = []
                 for col in df.columns:
                     col_name = str(col) if not isinstance(col, int) else f"列{col+1}"
-                    entity = detect_column_entity_type(col_name)
+                    if is_pass_through_column(
+                        col_name,
+                        anonymize_job_title=st.session_state.anonymize_job_title,
+                    ):
+                        entity = None
+                        action = "保留"
+                    else:
+                        entity = detect_column_entity_type(col_name)
+                        if entity is None and st.session_state.anonymize_job_title:
+                            entity = detect_optional_column_entity_type(col_name)
+                        action = "脱敏" if entity else "仅高置信扫描"
                     col_info.append({
                         "列名": col_name,
                         "实体类型": entity.value if entity else "—",
+                        "处理方式": action,
                         "示例值": str(df[col].dropna().iloc[0])[:20] if len(df[col].dropna()) > 0 else "—",
                     })
                 return pd.DataFrame(col_info)
@@ -1018,7 +1065,7 @@ def render_anonymize() -> None:
                 if not preview_df.empty:
                     st.dataframe(preview_df, use_container_width=True, hide_index=True)
                 else:
-                    st.caption("（DOCX/PDF 格式暂不支持预览）")
+                    st.caption("（该文件格式暂不支持预览）")
 
         st.markdown("### 第三步：配置处理选项（可选）")
 
@@ -1060,27 +1107,46 @@ def render_anonymize() -> None:
                     )
                     st.caption("密钥会在当前会话中保持。关闭页面后将丢失，请务必下载后妥善保管。")
 
-        if source_file is not None or has_multi:
-            source_suffix = Path(source_file.name).suffix.lower() if source_file else ""
-            if source_suffix in (".xlsx", ".csv") or has_multi:
-                with st.expander("表格格式配置（可选）", expanded=False):
-                    st.markdown(
-                        '<p>如果 Excel 或 CSV 的首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
-                        unsafe_allow_html=True,
-                    )
-            header_mode = st.radio(
-                "表头所在行",
-                ["自动检测", "第一行", "第二行", "自定义行号"],
-                index=["自动检测", "第一行", "第二行", "自定义行号"].index(st.session_state.header_mode),
-                horizontal=True,
-                key="header_mode_radio",
+        with st.expander("字段脱敏范围（可选）", expanded=False):
+            st.checkbox(
+                "脱敏岗位名称 / 职位 / 职务",
+                value=st.session_state.anonymize_job_title,
+                key="anonymize_job_title",
+                help="默认保留岗位，便于分析岗位结构。开启后，岗位名称列会进入匹配文件并替换为 token。",
             )
-            st.session_state.header_mode = header_mode
-            if header_mode == "自定义行号":
-                custom_row = st.number_input(
-                    "表头行号", min_value=1, value=st.session_state.custom_header_row, step=1, key="custom_header_row_input"
+            st.checkbox(
+                "脱敏部门名称",
+                value=st.session_state.anonymize_department,
+                key="anonymize_department",
+                help="默认脱敏。关闭后，部门名称列将保留原值，不替换为 token。",
+            )
+            st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
+
+        source_suffix = Path(source_file.name).suffix.lower() if source_file else ""
+        has_table_file = has_multi or source_suffix in (".xlsx", ".csv", ".numbers", ".et")
+        if has_table_file:
+            with st.expander("表格格式配置（可选）", expanded=False):
+                st.markdown(
+                    '<p>如果表格首行是标题文字（如"2024年度员工统计表"），而非列名表头，请在此调整。</p>',
+                    unsafe_allow_html=True,
                 )
-                st.session_state.custom_header_row = custom_row
+                header_mode = st.radio(
+                    "表头所在行",
+                    ["自动检测", "第一行", "第二行", "自定义行号"],
+                    index=["自动检测", "第一行", "第二行", "自定义行号"].index(st.session_state.header_mode),
+                    horizontal=True,
+                    key="header_mode_radio",
+                )
+                st.session_state.header_mode = header_mode
+                if header_mode == "自定义行号":
+                    custom_row = st.number_input(
+                        "表头行号",
+                        min_value=1,
+                        value=st.session_state.custom_header_row,
+                        step=1,
+                        key="custom_header_row_input",
+                    )
+                    st.session_state.custom_header_row = custom_row
 
         st.divider()
 
@@ -1106,6 +1172,9 @@ def render_anonymize() -> None:
                 "seed_file": None,
                 "header_mode": "自动检测",
                 "custom_header_row": 1,
+                "anonymize_job_title": False,
+                "anonymize_department": True,
+                "anonymize_region": True,
                 "anonymize_result": None,
                 "anonymize_batch_result": None,
             })

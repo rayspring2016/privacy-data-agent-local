@@ -22,8 +22,16 @@ def anonymize(
     input_path: Path = typer.Argument(..., exists=True, readable=True),
     output_dir: Path = typer.Option(Path("runs/local"), "--output-dir", "-o"),
     header_row: int | None = typer.Option(None, "--header-row", "-hr", help="1-based header row number (default: auto-detect)"),
+    anonymize_job_title: bool = typer.Option(False, "--anonymize-job-title", help="Also anonymize job title columns such as 岗位名称 / 职位 / 职务."),
+    anonymize_department: bool = typer.Option(True, "--anonymize-department/--no-anonymize-department", help="Anonymize department names (default: enabled)."),
 ) -> None:
-    artifacts = anonymize_file(input_path=input_path, output_dir=output_dir, header_row=header_row)
+    artifacts = anonymize_file(
+        input_path=input_path,
+        output_dir=output_dir,
+        header_row=header_row,
+        anonymize_job_title=anonymize_job_title,
+        anonymize_department=anonymize_department,
+    )
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")

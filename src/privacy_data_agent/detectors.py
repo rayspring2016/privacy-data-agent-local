@@ -15,6 +15,29 @@ PURE_DIGIT_EMPLOYEE_ID_RE = re.compile(r"^[0-9]{4,10}$")
 NON_PERSON_REN_COLUMNS = ("人数", "人均", "人次", "人工", "人效", "人天")
 # 绩效考核/评分列包含"绩效"但不是薪酬数字（绩效工资才是）
 NON_SALARY_COLUMNS = ("评分", "等级", "考核", "评估", "评价", "档次")
+JOB_TITLE_COLUMN_HINTS = (
+    "岗位名称",
+    "岗位",
+    "职位",
+    "职位名称",
+    "职务",
+    "职务名称",
+    "job_title",
+    "position",
+    "title",
+)
+JOB_TITLE_EXCLUDED_HINTS = ("补贴", "工资", "薪资", "薪酬", "奖金", "收入")
+PASS_THROUGH_COLUMN_HINTS = (
+    "离职原因",
+    "离职类型",
+    "离职性质",
+    "离职状态",
+    "离职备注",
+    "离职说明",
+    "异动原因",
+    "变动原因",
+    "状态",
+)
 
 COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     (
@@ -179,16 +202,63 @@ def detect_label_value_layout(worksheet, header_row: int = 1) -> bool:
 
     if total_nonempty < 2:
         return False
+    if label_count == total_nonempty and label_count >= 2:
+        return True
     return label_count >= 3 and (label_count / total_nonempty) > 0.5
 
 
-def resolve_entity_from_label(label: str) -> EntityType | None:
+def resolve_entity_from_label(
+    label: str,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
+) -> EntityType | None:
     """从字段标签文本推断其对应值的实体类型（用于左右结构）。"""
+    if is_pass_through_column(
+        label,
+        anonymize_job_title=anonymize_job_title,
+        anonymize_department=anonymize_department,
+        anonymize_region=anonymize_region,
+    ):
+        return None
+    optional = detect_optional_column_entity_type(label)
+    if optional is not None:
+        return optional if anonymize_job_title else None
     return detect_column_entity_type(label)
 
 
+def is_pass_through_column(
+    column_name: str,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
+) -> bool:
+    normalized = _normalize_column_name(column_name)
+    if not normalized:
+        return False
+    if any(hint in normalized for hint in PASS_THROUGH_COLUMN_HINTS):
+        return True
+    # 可选脱敏：JOB_TITLE
+    if not anonymize_job_title and detect_optional_column_entity_type(column_name) is not None:
+        return True
+    # 可选脱敏：DEPARTMENT（默认=True，即默认脱敏）
+    detected = detect_column_entity_type(column_name)
+    if detected == EntityType.DEPARTMENT and not anonymize_department:
+        return True
+    return False
+
+
+def detect_optional_column_entity_type(column_name: str) -> EntityType | None:
+    normalized = _normalize_column_name(column_name)
+    if any(hint in normalized for hint in JOB_TITLE_EXCLUDED_HINTS):
+        return None
+    if any(hint.lower() in normalized for hint in JOB_TITLE_COLUMN_HINTS):
+        return EntityType.JOB_TITLE
+    return None
+
+
 def detect_column_entity_type(column_name: str) -> EntityType | None:
-    normalized = column_name.strip().lower()
+    normalized = _normalize_column_name(column_name)
     if _looks_like_person_column(normalized):
         return EntityType.EMPLOYEE
     # SALARY列排除：绩效评分/等级/考核（不是薪酬数字，是考核结果）
@@ -216,6 +286,28 @@ def detect_column_entity_type(column_name: str) -> EntityType | None:
                 else:
                     return entity_type
     return None
+
+
+def detect_high_confidence_cell_entity_type(value: object) -> EntityType | None:
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return None
+    for pattern, entity_type in DETECTORS_BY_RE:
+        if entity_type not in {
+            EntityType.ID_NUMBER,
+            EntityType.PHONE,
+            EntityType.EMAIL,
+            EntityType.LICENSE_PLATE,
+            EntityType.EMPLOYEE_ID,
+        }:
+            continue
+        if pattern.match(text):
+            return entity_type
+    return None
+
+
+def _normalize_column_name(column_name: str) -> str:
+    return column_name.strip().lower()
 
 
 def _looks_like_person_column(normalized_column_name: str) -> bool:
@@ -329,6 +421,30 @@ SURNAME_SET: set[str] = {
 # ── 人名误报黑名单 ─────────────────────────────────────────────────
 # 看起来像人名但实际不是的词组，按类别分组
 
+# 5️⃣ 岗位/职位名称
+JOB_TITLE_TERM_BLACKLIST: set[str] = {
+    # 职能类职位关键字（用于"百家姓+职位"模式检测，如"张主管""王专员"）
+    "主管", "经理", "总监", "主任", "专员", "助理", "秘书",
+    "顾问", "内勤", "外勤", "文员", "科员", "干事", "代表",
+    # 高管类
+    "总裁", "总理", "副总", "董事", "监事",
+    # 财务/技术/客服类
+    "会计", "出纳", "审计", "财务", "结算", "税务", "投融",
+    "客服", "售后", "售前", "销售", "市场", "运营", "采购",
+    "开发", "测试", "运维", "架构", "算法", "安全", "数据",
+    "研发", "设计", "产品", "项目", "分析",
+    # 虚线/直线关系
+    "直线经理", "虚线经理",
+}
+
+# 完整职位名称黑名单（整词匹配，用于4字职位如"客服主管"）
+JOB_TITLE_FULL_BLACKLIST: set[str] = {
+    "客服主管", "财务专员", "人事专员", "行政专员", "运营主管",
+    "销售主管", "市场主管", "产品主管", "技术主管", "研发主管",
+    "测试主管", "运维主管", "HR主管", "HRBP", "董秘",
+    "HR专员", "HR主管",
+}
+
 # 1️⃣ AI 工具名
 AI_TOOL_BLACKLIST: set[str] = {
     "文心", "文心一言",  # 百度文心
@@ -417,6 +533,8 @@ NON_NAME_BLACKLIST: set[str] = (
     | COMMON_WORD_PAIR_BLACKLIST
     | PLACE_INSTITUTION_BLACKLIST
     | IDIOM_BLACKLIST
+    | JOB_TITLE_TERM_BLACKLIST
+    | JOB_TITLE_FULL_BLACKLIST
 )
 
 # DEPRECATED alias — kept for external callers that import AI_TOOL_BLACKLIST directly.
@@ -424,23 +542,75 @@ AI_TOOL_BLACKLIST_DEPRECATED = AI_TOOL_BLACKLIST
 
 
 def _looks_like_chinese_name(text: str) -> bool:
-    """检查是否像中文姓名（基于百家姓白名单，排除黑名单词组）"""
+    """检查是否像中文姓名（基于百家姓白名单，排除黑名单词组）。
+
+    增强：也排除"百家姓+职位后缀"模式（如"张主管""王专员""李总监"），
+    以及完整职位名（如"客服主管""财务专员"）。
+    """
     if len(text) < 2 or len(text) > 4:
         return False
-    # 黑名单优先排除（AI工具名/常用词/地名/成语等）
+    # 黑名单整词优先排除（AI工具名/常用词/地名/成语/完整职位名）
     if text in NON_NAME_BLACKLIST:
         return False
-    # 复姓/双姓优先（2字符）
+    # 复姓/双姓（2字符）
     if text[:2] in SURNAME_SET:
+        # 排除"复姓+职位后缀"（如"欧阳经理"→剩余2字"经理"命中黑名单）
+        remaining = text[2:]
+        if len(remaining) >= 2 and remaining in JOB_TITLE_TERM_BLACKLIST:
+            return False
         return True
-    # 单姓（1字符）
+    # 单姓（1字符）：有效中文姓名=单姓+1字（如"张明"），3字="单姓+2字职位"
     if text[:1] in SURNAME_SET:
+        remaining = text[1:]
+        # 3字情况下检查剩余2字是否为职位（如"张主管"→剩余"主管"命中）
+        if len(remaining) >= 2 and remaining in JOB_TITLE_TERM_BLACKLIST:
+            return False
         return True
     return False
 
 
 # Public alias — allows callers to import without leading underscore.
 looks_like_chinese_name = _looks_like_chinese_name
+
+
+# ── 手机号/邮箱二次格式校验 ─────────────────────────────────────────
+# 在强正则匹配后，作为辅助校验层进一步排除误报。
+# 原则：只排除"明显不对"的情况，不排除合理的边界值。
+
+# 常见虚假/测试手机号前缀（段号不存在或为测试号段）
+SUSPICIOUS_PHONE_PREFIXES = (
+    "000", "111", "222", "333", "444", "555", "666", "777", "888", "999",
+    "123", "321", "6666", "8888",
+)
+
+
+def _phone_format_suspicious(text: str) -> bool:
+    """手机号格式二次校验——返回 True 表示该号码'可疑但不强拒'。"""
+    # 排除全相同数字（测试号）
+    if len(set(text)) == 1:
+        return True
+    # 排除前3位为全序重复数字
+    if text[:3] in SUSPICIOUS_PHONE_PREFIXES:
+        return True
+    return False
+
+
+# 常见虚假/测试邮箱域名（仅作辅助参考，不硬拒）
+REALISTIC_EMAIL_DOMAINS: frozenset[str] = frozenset({
+    "qq.com", "163.com", "126.com", "sina.com", "hotmail.com",
+    "gmail.com", "outlook.com", "foxmail.com", "139.com",
+    "sohu.com", "tom.com", "yeah.net", "aliyun.com", "钉钉", "wechat",
+})
+SUSPICIOUS_EMAIL_KEYWORDS = {"test", "测试", "示例", "样例", "example", "fake", "dummy"}
+
+
+def _email_format_suspicious(text: str) -> bool:
+    """邮箱格式二次校验——返回 True 表示该邮箱'可疑但不强拒'。"""
+    # 排除包含测试关键词的邮箱
+    local_part = text.split("@")[0].lower()
+    if any(kw in local_part for kw in SUSPICIOUS_EMAIL_KEYWORDS):
+        return True
+    return False
 
 
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
@@ -462,11 +632,21 @@ DETECTORS_BY_RE = [
 ]
 
 
-def detect_cell_entity_type(value: object, column_type: EntityType | None = None) -> EntityType | None:
+def detect_cell_entity_type(
+    value: object,
+    column_type: EntityType | None = None,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
+) -> EntityType | None:
     """
     Detect entity type from cell value.
     When column_type is EMPLOYEE_ID, also accepts pure-digit IDs (e.g. 001234, 1234567)
     to handle unmasked numeric employee numbers in ID columns.
+
+    二次校验层：
+    - EMPLOYEE 列（强规则推断）：用百家姓白名单兜底，排除"张主管"等岗位名
+    - DEPARTMENT/REGION 列：按 anonymize_department/anonymize_region 决定是否脱敏
+    - PHONE/EMAIL：正则匹配后再做格式校验，排除测试号/虚假邮箱
     """
     text = "" if value is None else str(value).strip()
     if not text:
@@ -478,11 +658,25 @@ def detect_cell_entity_type(value: object, column_type: EntityType | None = None
     if column_type == EntityType.EMPLOYEE_ID and PURE_DIGIT_EMPLOYEE_ID_RE.match(text):
         return EntityType.EMPLOYEE_ID
 
+    # 强规则 EMPLOYEE 列（列名推断）用百家姓白名单兜底校验
+    # 排除"张主管""王专员""李总监"等"百家姓+职位后缀"以及"客服主管"等纯职位名
+    if column_type == EntityType.EMPLOYEE and not _looks_like_chinese_name(text):
+        return None
+
+    # 可选脱敏：DEPARTMENT 列
+    if column_type == EntityType.DEPARTMENT and not anonymize_department:
+        return None
+
     for pattern, entity_type in DETECTORS_BY_RE:
         if pattern.match(text):
             # CHINESE_NAME_RE 用百家姓白名单二次验证
             if entity_type == EntityType.EMPLOYEE and pattern == CHINESE_NAME_RE:
                 if not _looks_like_chinese_name(text):
                     continue
+            # PHONE/EMAIL 正则匹配后再做格式二次校验
+            if entity_type == EntityType.PHONE and _phone_format_suspicious(text):
+                continue
+            if entity_type == EntityType.EMAIL and _email_format_suspicious(text):
+                continue
             return entity_type
     return None

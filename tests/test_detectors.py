@@ -1,9 +1,18 @@
 from privacy_data_agent.detectors import (
+    _looks_like_chinese_name,
     detect_cell_entity_type,
     detect_column_entity_type,
     detect_header_row,
+    detect_high_confidence_cell_entity_type,
     detect_label_value_layout,
+    detect_optional_column_entity_type,
+    is_pass_through_column,
     resolve_entity_from_label,
+    _phone_format_suspicious,
+    _email_format_suspicious,
+    EntityType,
+    JOB_TITLE_FULL_BLACKLIST,
+    JOB_TITLE_TERM_BLACKLIST,
 )
 from privacy_data_agent.models import EntityType
 
@@ -36,6 +45,15 @@ def test_detects_cell_patterns_without_column_hint():
     assert detect_cell_entity_type("13800138000") == EntityType.PHONE
     assert detect_cell_entity_type("zhangsan@example.com") == EntityType.EMAIL
     assert detect_cell_entity_type("120000") is None
+
+
+def test_high_confidence_cell_detection_excludes_names_and_departments():
+    assert detect_high_confidence_cell_entity_type("11010119900307001X") == EntityType.ID_NUMBER
+    assert detect_high_confidence_cell_entity_type("13800138000") == EntityType.PHONE
+    assert detect_high_confidence_cell_entity_type("zhangsan@example.com") == EntityType.EMAIL
+    assert detect_high_confidence_cell_entity_type("EMP00123") == EntityType.EMPLOYEE_ID
+    assert detect_high_confidence_cell_entity_type("张三") is None
+    assert detect_high_confidence_cell_entity_type("技术部") is None
 
 
 def test_detect_header_row_standard_table():
@@ -223,8 +241,22 @@ def test_resolve_entity_from_label():
     assert resolve_entity_from_label("身份证号") == EntityType.ID_NUMBER
     assert resolve_entity_from_label("部门") == EntityType.DEPARTMENT
     assert resolve_entity_from_label("工资") == EntityType.SALARY
+    assert resolve_entity_from_label("岗位名称") is None
+    assert resolve_entity_from_label("岗位名称", anonymize_job_title=True) == EntityType.JOB_TITLE
     assert resolve_entity_from_label("备注") is None
     assert resolve_entity_from_label("随便写的") is None
+
+
+def test_optional_and_pass_through_columns():
+    assert detect_column_entity_type("岗位名称") is None
+    assert detect_optional_column_entity_type("岗位名称") == EntityType.JOB_TITLE
+    assert is_pass_through_column("岗位名称") is True
+    assert is_pass_through_column("岗位名称", anonymize_job_title=True) is False
+    assert is_pass_through_column("离职原因") is True
+    assert is_pass_through_column("离职类型") is True
+    assert detect_column_entity_type("岗位补贴") == EntityType.SALARY
+    assert detect_optional_column_entity_type("岗位补贴") is None
+    assert is_pass_through_column("岗位补贴") is False
 
 
 def test_detect_label_value_layout_positive():
@@ -275,3 +307,77 @@ def test_detect_label_value_layout_negative_too_few_labels():
     ws.append(["地址", "苏州"])
     # Only "姓名" is a label keyword → 1/4 = 25%, < 50%
     assert detect_label_value_layout(ws, header_row=1) is False
+
+
+# ── 二次校验层测试 ────────────────────────────────────────────────
+
+def test_job_title_blacklist_has_full_terms():
+    """完整职位名在黑名单中（整词匹配）"""
+    assert "客服主管" in JOB_TITLE_FULL_BLACKLIST
+    assert "财务专员" in JOB_TITLE_FULL_BLACKLIST
+    assert "HRBP" in JOB_TITLE_FULL_BLACKLIST
+    assert "董秘" in JOB_TITLE_FULL_BLACKLIST
+
+
+def test_job_title_term_blacklist_has_keywords():
+    """职位关键字在黑名单中（用于"百家姓+职位"模式）"""
+    assert "主管" in JOB_TITLE_TERM_BLACKLIST
+    assert "专员" in JOB_TITLE_TERM_BLACKLIST
+    assert "总监" in JOB_TITLE_TERM_BLACKLIST
+    assert "经理" in JOB_TITLE_TERM_BLACKLIST
+    assert "董事" in JOB_TITLE_TERM_BLACKLIST
+    assert "直线经理" in JOB_TITLE_TERM_BLACKLIST
+    assert "虚线经理" in JOB_TITLE_TERM_BLACKLIST
+
+
+def test_surname_plus_job_title_rejected():
+    """百家姓+职位后缀被正确排除：单姓+2字职位"""
+    assert _looks_like_chinese_name("张主管") is False
+    assert _looks_like_chinese_name("王专员") is False
+    assert _looks_like_chinese_name("李总监") is False
+    assert _looks_like_chinese_name("赵经理") is False
+
+
+def test_surname_plus_job_title_compound_rejected():
+    """百家姓+职位后缀被正确排除：复姓+2字职位"""
+    assert _looks_like_chinese_name("欧阳经理") is False
+    assert _looks_like_chinese_name("司马主管") is False
+
+
+def test_valid_chinese_names_still_detected():
+    """正常中文姓名仍然被正确识别"""
+    assert _looks_like_chinese_name("张明") is True
+    assert _looks_like_chinese_name("欧阳静") is True
+    assert _looks_like_chinese_name("王丽") is True
+
+
+def test_job_title_full_blacklist_rejected():
+    """完整职位名（黑名单整词）被正确排除"""
+    assert _looks_like_chinese_name("客服主管") is False
+    assert _looks_like_chinese_name("财务专员") is False
+    assert _looks_like_chinese_name("董秘") is False
+
+
+def test_strong_rule_employee_column_job_titles_filtered():
+    """强规则 EMPLOYEE 列中，岗位值被百家姓二次校验过滤"""
+    assert detect_cell_entity_type("张主管", EntityType.EMPLOYEE) is None
+    assert detect_cell_entity_type("客服主管", EntityType.EMPLOYEE) is None
+    assert detect_cell_entity_type("张明", EntityType.EMPLOYEE) == EntityType.EMPLOYEE
+    # 无列上下文时：内容模式能检测到"张明"
+    assert detect_cell_entity_type("张明", None) == EntityType.EMPLOYEE
+
+
+def test_phone_format_suspicious_rejects_test_numbers():
+    """手机号格式二次校验排除测试号"""
+    assert _phone_format_suspicious("00000000000") is True
+    assert _phone_format_suspicious("11111111111") is True
+    assert _phone_format_suspicious("12345678901") is True
+    assert _phone_format_suspicious("13812345678") is False  # 正常号段
+
+
+def test_email_format_suspicious_rejects_test_addresses():
+    """邮箱格式二次校验排除测试地址"""
+    assert _email_format_suspicious("test@example.com") is True
+    assert _email_format_suspicious("测试@163.com") is True
+    assert _email_format_suspicious("zhangsan@163.com") is False  # 正常邮箱
+

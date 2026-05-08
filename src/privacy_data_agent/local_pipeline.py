@@ -26,7 +26,14 @@ class LocalRestoreArtifacts(BaseModel):
     restored_report_path: Path
 
 
-def anonymize_file(input_path: str | Path, output_dir: str | Path, header_row: int | None = None) -> LocalAnonymizeArtifacts:
+def anonymize_file(
+    input_path: str | Path,
+    output_dir: str | Path,
+    header_row: int | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
+) -> LocalAnonymizeArtifacts:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     run_id = uuid4().hex[:12]
@@ -42,11 +49,18 @@ def anonymize_file(input_path: str | Path, output_dir: str | Path, header_row: i
     )
 
     if input_file.suffix.lower() == ".xlsx":
-        anonymized_workbook = anonymize_xlsx_file(input_file, artifacts.anonymized_data_path, header_row=header_row)
+        anonymized_workbook = anonymize_xlsx_file(
+            input_file,
+            artifacts.anonymized_data_path,
+            header_row=header_row,
+            anonymize_job_title=anonymize_job_title,
+            anonymize_department=anonymize_department,
+            anonymize_region=anonymize_region,
+        )
         mapping = anonymized_workbook.mapping
     else:
         source_df = read_input_table(input_file, header_row=header_row)
-        anonymized = anonymize_dataframe(source_df)
+        anonymized = anonymize_dataframe(source_df, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
         anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
         mapping = anonymized.mapping
     save_plain_mapping_file(mapping, artifacts.mapping_json_path)

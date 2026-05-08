@@ -5,7 +5,12 @@ import secrets
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
-from privacy_data_agent.detectors import detect_cell_entity_type, detect_column_entity_type
+from privacy_data_agent.detectors import (
+    detect_column_entity_type,
+    detect_high_confidence_cell_entity_type,
+    detect_optional_column_entity_type,
+    is_pass_through_column,
+)
 from privacy_data_agent.models import ANON_TOKEN_PREFIX, EntityType, MappingEntry, MappingFile
 
 
@@ -41,16 +46,32 @@ class AnonymizerState:
 def anonymize_dataframe(
     df: pd.DataFrame,
     seed_mapping: MappingFile | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
 ) -> AnonymizeResult:
     state = AnonymizerState(seed_mapping=seed_mapping)
     output = df.copy().astype("object")
     for column in output.columns:
-        column_type = detect_column_entity_type(str(column))
+        column_name = str(column)
+        if is_pass_through_column(
+            column_name,
+            anonymize_job_title=anonymize_job_title,
+            anonymize_department=anonymize_department,
+            anonymize_region=anonymize_region,
+        ):
+            continue
+        column_type = detect_column_entity_type(column_name)
+        if column_type is None and anonymize_job_title:
+            column_type = detect_optional_column_entity_type(column_name)
         for row_index, value in output[column].items():
             text = "" if pd.isna(value) else str(value).strip()
             if not text:
                 continue
-            entity_type = column_type or detect_cell_entity_type(text)
+            # DEPARTMENT 列按可选参数过滤
+            if column_type == EntityType.DEPARTMENT and not anonymize_department:
+                continue
+            entity_type = column_type or detect_high_confidence_cell_entity_type(text)
             if entity_type is None:
                 continue
             output.at[row_index, column] = state.token_for(entity_type, text)

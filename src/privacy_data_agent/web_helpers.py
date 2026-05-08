@@ -294,6 +294,9 @@ def anonymize_upload(
     seed_mapping_content: bytes | None = None,
     header_row: int | None = None,
     encryption_key: str | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
 ) -> dict[str, bytes | str | int]:
     seed: MappingFile | None = None
     if seed_mapping_filename and seed_mapping_content:
@@ -301,14 +304,21 @@ def anonymize_upload(
         seed = load_local_mapping(seed_path)
     suffix = Path(filename).suffix.lower()
     if suffix == ".xlsx":
-        workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed, header_row=header_row)
+        workbook_result = anonymize_xlsx_bytes(
+            content,
+            seed_mapping=seed,
+            header_row=header_row,
+            anonymize_job_title=anonymize_job_title,
+            anonymize_department=anonymize_department,
+            anonymize_region=anonymize_region,
+        )
         result_mapping = workbook_result.mapping
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
     elif suffix == ".numbers":  # Apple Numbers - treat as CSV
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -316,7 +326,14 @@ def anonymize_upload(
     elif suffix == ".et":  # WPS Spreadsheet (older .xls format via pandas)
         # .et is essentially a compressed format - try openpyxl first, fallback to pandas xlrd
         try:
-            workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed, header_row=header_row)
+            workbook_result = anonymize_xlsx_bytes(
+                content,
+                seed_mapping=seed,
+                header_row=header_row,
+                anonymize_job_title=anonymize_job_title,
+                anonymize_department=anonymize_department,
+                anonymize_region=anonymize_region,
+            )
             result_mapping = workbook_result.mapping
             row_count = workbook_result.row_count
             anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -326,7 +343,7 @@ def anonymize_upload(
             buffer = BytesIO(content)
             xls_df = pd.read_excel(buffer, engine="xlrd")
             buffer.seek(0)
-            result = anonymize_dataframe(xls_df, seed_mapping=seed)
+            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
             result_mapping = result.mapping
             row_count = len(result.dataframe)
             anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -347,7 +364,7 @@ def anonymize_upload(
         anonymized_pdf = pdf_result.workbook_bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -420,6 +437,9 @@ def anonymize_batch(
     first_seed_content: bytes | None = None,
     header_row: int | None = None,
     encryption_key: str | None = None,
+    anonymize_job_title: bool = False,
+    anonymize_department: bool = True,
+    anonymize_region: bool = True,
 ) -> dict:
     """
     Process multiple files sequentially, accumulating mapping across all files.
@@ -441,11 +461,19 @@ def anonymize_batch(
 
     for filename, content in files:
         suffix = Path(filename).suffix.lower()
+        output_suffix = suffix
 
         if suffix == ".xlsx":
             from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
 
-            wb_result = anonymize_xlsx_bytes(content, seed_mapping=accumulated, header_row=header_row)
+            wb_result = anonymize_xlsx_bytes(
+                content,
+                seed_mapping=accumulated,
+                header_row=header_row,
+                anonymize_job_title=anonymize_job_title,
+                anonymize_department=anonymize_department,
+                anonymize_region=anonymize_region,
+            )
             mapping = wb_result.mapping
             row_count = wb_result.row_count
             anonymized_bytes = wb_result.workbook_bytes
@@ -470,11 +498,18 @@ def anonymize_batch(
             preview_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
         else:
             df = read_uploaded_table(filename, content, header_row=header_row)
-            result = anonymize_dataframe(df, seed_mapping=accumulated)
+            result = anonymize_dataframe(
+                df,
+                seed_mapping=accumulated,
+                anonymize_job_title=anonymize_job_title,
+                anonymize_department=anonymize_department,
+                anonymize_region=anonymize_region,
+            )
             mapping = result.mapping
             row_count = len(result.dataframe)
             preview_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
             anonymized_bytes = dataframe_to_xlsx_bytes(result.dataframe)
+            output_suffix = ".xlsx"
 
         new_count = len(mapping.entries) - (len(accumulated.entries) if accumulated else 0)
         total_rows += row_count
@@ -485,7 +520,7 @@ def anonymize_batch(
 
         results.append({
             "stem": Path(filename).stem,
-            "suffix": suffix,
+            "suffix": output_suffix,
             "row_count": row_count,
             "new_entity_count": new_count,
             "entity_count": len(mapping.entries),
@@ -495,10 +530,10 @@ def anonymize_batch(
             "mapping_table_csv": mapping_to_table_csv_bytes(mapping),
             "zip_bundle": (
                 create_encrypted_zip_bundle(
-                    Path(filename).stem, anonymized_bytes, mapping_json, suffix, encryption_key
+                    Path(filename).stem, anonymized_bytes, mapping_json, output_suffix, encryption_key
                 )
                 if encryption_key
-                else create_zip_bundle(Path(filename).stem, anonymized_bytes, mapping_json, suffix)
+                else create_zip_bundle(Path(filename).stem, anonymized_bytes, mapping_json, output_suffix)
             ),
             "encrypted_mapping_json": (
                 encrypt_mapping_json(mapping_json, encryption_key) if encryption_key else None
@@ -519,10 +554,18 @@ def anonymize_batch(
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for r in results:
             zf.writestr(f"{r['stem']}_anonymized{r['suffix']}", r["anonymized_bytes"])
-        zf.writestr("mapping.local.json", final_mapping_json.encode("utf-8"))
+        mapping_bytes = (
+            encrypt_mapping_json(final_mapping_json, encryption_key)
+            if encryption_key
+            else final_mapping_json.encode("utf-8")
+        )
+        zf.writestr("mapping.local.json", mapping_bytes)
         zf.writestr(
             "README.txt",
-            "批量脱敏数据包\n包含所有文件及统一匹配文件。\n".encode("utf-8"),
+            (
+                "批量脱敏数据包\n包含所有文件及统一匹配文件。\n"
+                + ("mapping.local.json 已加密，反脱敏时请输入同一密钥。\n" if encryption_key else "")
+            ).encode("utf-8"),
         )
     consolidated_zip = buf.getvalue()
 
