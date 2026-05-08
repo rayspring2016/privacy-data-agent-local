@@ -96,6 +96,59 @@ def test_surname_set_no_regression():
         assert s in SURNAME_SET, f"Regression: {s!r} removed"
 
 
+# ── v1.12.0: D5 surname expansion + D6 blacklist ────────────────────────────
+
+def test_surname_set_expansion():
+    """Surname set should have grown significantly (~600+ entries)."""
+    from privacy_data_agent.detectors import SURNAME_SET
+    assert len(SURNAME_SET) >= 580, f"SURNAME_SET too small: {len(SURNAME_SET)}"
+    # Verify we have both singles and compounds
+    singles = {s for s in SURNAME_SET if len(s) == 1}
+    compounds = SURNAME_SET - singles
+    assert len(singles) >= 500, f"Too few single surnames: {len(singles)}"
+    assert len(compounds) >= 80, f"Too few compound surnames: {len(compounds)}"
+
+
+def test_blacklist_filters_ai_tool_names():
+    """AI tool names should NOT be detected as names."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    ai_tools = ["文心", "通义", "豆包", "Kimi", "智谱", "天工", "讯飞", "秘塔"]
+    for name in ai_tools:
+        assert _looks_like_chinese_name(name) is False, f"{name!r} should be blocked by AI_TOOL_BLACKLIST"
+
+
+def test_blacklist_filters_common_word_pairs():
+    """Common two-character words should NOT be detected as names."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    word_pairs = ["大小", "多少", "高低", "长短", "远近", "左右", "上下", "前后"]
+    for word in word_pairs:
+        assert _looks_like_chinese_name(word) is False, f"{word!r} should be blocked by COMMON_WORD_PAIR_BLACKLIST"
+
+
+def test_blacklist_filters_places_and_institutions():
+    """Place/institution names should NOT be detected as names."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    places = ["北京", "上海", "深圳", "腾讯", "阿里", "字节", "百度", "京东"]
+    for place in places:
+        assert _looks_like_chinese_name(place) is False, f"{place!r} should be blocked by PLACE_INSTITUTION_BLACKLIST"
+
+
+def test_blacklist_filters_idioms():
+    """Idioms (4-char) should NOT be detected as names."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    idioms = ["春夏秋冬", "东南西北", "千军万马", "三心二意"]
+    for idiom in idioms:
+        assert _looks_like_chinese_name(idiom) is False, f"{idiom!r} should be blocked by IDIOM_BLACKLIST"
+
+
+def test_names_not_in_blacklist_still_detected():
+    """Valid names not in blacklist should still be detected."""
+    from privacy_data_agent.detectors import _looks_like_chinese_name
+    names = ["王明", "李华", "张伟", "欧阳婷", "陈杨健", "东方彤"]
+    for name in names:
+        assert _looks_like_chinese_name(name) is True, f"{name!r} should be a valid name"
+
+
 # ── v1.10.0: SALARY entity type ──────────────────────────────────────────────
 
 def test_salary_column_types():
