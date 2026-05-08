@@ -141,6 +141,52 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
 )
 
 
+# ── 左右结构（标签-值布局）检测 ───────────────────────────────────
+# 当Excel表单是A列=字段标签/B列=实际值的竖排布局时使用
+
+LABEL_VALUE_KEYWORDS: frozenset[str] = frozenset({
+    "姓名", "工号", "员工号", "员工编号", "编号",
+    "部门", "组织", "中心", "组别",
+    "手机号", "电话", "邮箱",
+    "身份证", "身份证号",
+    "车牌", "车牌号",
+    "薪酬", "工资", "基本工资", "绩效工资",
+    "入职日期", "离职日期",
+    "岗位", "职位", "职务",
+    "性别", "年龄", "学历", "毕业院校", "专业",
+})
+
+
+def detect_label_value_layout(worksheet, header_row: int = 1) -> bool:
+    """检测sheet是否为左右结构（标签在A列，值在B列）。
+
+    启发式：
+    1. 前20行中第一列至少3行是标签关键词
+    2. 第一列非空行中 >50% 是标签（2-4字中文名不算，避免正常人名表被误判）
+    """
+    label_count = 0
+    total_nonempty = 0
+    for row in worksheet.iter_rows(min_row=header_row + 1, max_row=header_row + 20):
+        cells = list(row)
+        if not cells or cells[0].value is None:
+            continue
+        text = str(cells[0].value).strip()
+        if not text:
+            continue
+        total_nonempty += 1
+        if text in LABEL_VALUE_KEYWORDS:
+            label_count += 1
+
+    if total_nonempty < 2:
+        return False
+    return label_count >= 3 and (label_count / total_nonempty) > 0.5
+
+
+def resolve_entity_from_label(label: str) -> EntityType | None:
+    """从字段标签文本推断其对应值的实体类型（用于左右结构）。"""
+    return detect_column_entity_type(label)
+
+
 def detect_column_entity_type(column_name: str) -> EntityType | None:
     normalized = column_name.strip().lower()
     if _looks_like_person_column(normalized):

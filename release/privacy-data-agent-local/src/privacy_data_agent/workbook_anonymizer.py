@@ -13,6 +13,8 @@ from privacy_data_agent.detectors import (
     detect_cell_entity_type,
     detect_column_entity_type,
     detect_header_row,
+    detect_label_value_layout,
+    resolve_entity_from_label,
     CHINESE_NAME_RE,
     _looks_like_chinese_name,
 )
@@ -66,37 +68,71 @@ def anonymize_xlsx_bytes(
     for worksheet in workbook.worksheets:
         resolved_header_row = header_row or _detect_xlsx_header_row(worksheet)
         header_by_column = _header_by_column(worksheet, header_row=resolved_header_row)
+        is_label_value = detect_label_value_layout(worksheet, header_row=resolved_header_row)
 
-        for row in worksheet.iter_rows():
-            if header_by_column and row and row[0].row <= resolved_header_row:
-                continue
-            if any(cell.value is not None for cell in row):
-                row_count += 1
-            for cell in row:
-                if cell.value is None or cell.data_type == "f":
+        if is_label_value:
+            # 左右结构：A列=标签，B列=值，用标签决定值的实体类型
+            for row in worksheet.iter_rows():
+                if row and row[0].row <= resolved_header_row:
                     continue
-                text = str(cell.value).strip()
-                if not text:
+                cells = list(row)
+                if len(cells) < 2:
                     continue
-                column_type = detect_column_entity_type(header_by_column.get(cell.column, ""))
-                if column_type == EntityType.EMPLOYEE:
-                    segments = _split_person_cell(text)
+                label_cell, value_cell = cells[0], cells[1]
+                if label_cell.value is None or value_cell.value is None:
+                    continue
+                label_text = str(label_cell.value).strip()
+                value_text = str(value_cell.value).strip()
+                if not label_text or not value_text:
+                    continue
+                entity_type = resolve_entity_from_label(label_text)
+                if entity_type is None:
+                    continue
+                if entity_type == EntityType.EMPLOYEE:
+                    segments = _split_person_cell(value_text)
                     if len(segments) <= 1:
-                        # Single-name cell: one token, no surname check
-                        cell.value = state.token_for(EntityType.EMPLOYEE, text)
+                        value_cell.value = state.token_for(EntityType.EMPLOYEE, value_text)
                     else:
                         validate = len(segments) >= _MULTI_NAME_SURNAME_CHECK_THRESHOLD
-                        result = text
+                        result = value_text
                         for seg in segments:
                             token = _anonymize_person_segment(seg, validate_surname=validate, state=state)
                             if token is not None:
                                 result = result.replace(seg, token, 1)
-                        cell.value = result
+                        value_cell.value = result
                 else:
-                    entity_type = column_type or detect_cell_entity_type(text, column_type=column_type)
-                    if entity_type is None:
+                    value_cell.value = state.token_for(entity_type, value_text)
+        else:
+            # 标准结构：列头在上
+            for row in worksheet.iter_rows():
+                if header_by_column and row and row[0].row <= resolved_header_row:
+                    continue
+                if any(cell.value is not None for cell in row):
+                    row_count += 1
+                for cell in row:
+                    if cell.value is None or cell.data_type == "f":
                         continue
-                    cell.value = state.token_for(entity_type, text)
+                    text = str(cell.value).strip()
+                    if not text:
+                        continue
+                    column_type = detect_column_entity_type(header_by_column.get(cell.column, ""))
+                    if column_type == EntityType.EMPLOYEE:
+                        segments = _split_person_cell(text)
+                        if len(segments) <= 1:
+                            cell.value = state.token_for(EntityType.EMPLOYEE, text)
+                        else:
+                            validate = len(segments) >= _MULTI_NAME_SURNAME_CHECK_THRESHOLD
+                            result = text
+                            for seg in segments:
+                                token = _anonymize_person_segment(seg, validate_surname=validate, state=state)
+                                if token is not None:
+                                    result = result.replace(seg, token, 1)
+                            cell.value = result
+                    else:
+                        entity_type = column_type or detect_cell_entity_type(text, column_type=column_type)
+                        if entity_type is None:
+                            continue
+                        cell.value = state.token_for(entity_type, text)
 
     output = BytesIO()
     workbook.save(output)
@@ -130,13 +166,32 @@ def _detect_xlsx_header_row(worksheet) -> int:
 
 
 def _header_by_column(worksheet, header_row: int = 1) -> dict[int, str]:
+    """返回 {列号: 表头文本}，补齐合并单元格的 slave 列。"""
     header_iter = worksheet.iter_rows(min_row=header_row, max_row=header_row)
     first_row = next(header_iter, ())
-    return {
+    header = {
         cell.column: str(cell.value).strip()
         for cell in first_row
         if cell.value is not None and str(cell.value).strip()
     }
+    # 补齐表头行的合并单元格：slave 列复用 master 列的文本
+    if not hasattr(worksheet, "merged_cells"):
+        return header
+    for merged_range in worksheet.merged_cells.ranges:
+        if not (merged_range.min_row <= header_row <= merged_range.max_row):
+            continue
+        master_col = merged_range.min_col
+        master_text = None
+        for cell in first_row:
+            if cell.column == master_col and cell.value is not None:
+                master_text = str(cell.value).strip()
+                break
+        if not master_text:
+            continue
+        for col in range(merged_range.min_col, merged_range.max_col + 1):
+            if col not in header:
+                header[col] = master_text
+    return header
 
 
 def _workbook_preview_dataframe(workbook_bytes: bytes, header_row: int = 1) -> pd.DataFrame:

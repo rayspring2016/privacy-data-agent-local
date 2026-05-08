@@ -7,7 +7,7 @@ import streamlit as st
 
 from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
 
-VERSION = "1.12.0"
+VERSION = "1.13.0"
 
 _DARK_THEME_CSS = """<style>
 :root {

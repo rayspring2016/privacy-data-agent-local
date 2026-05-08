@@ -141,3 +141,120 @@ def test_non_person_column_still_uses_cell_detection():
     result = anonymize_xlsx_bytes(content)
     originals = {e.original for e in result.mapping.entries}
     assert "13800138000" in originals
+
+
+# ── v1.13.0: Merged header cells ──────────────────────────────────────────────
+
+def _make_xlsx_with_merged_header(headers: list[str], merge_range: str, rows: list[list]) -> bytes:
+    """Create xlsx with merged cells in the header row."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    ws.merge_cells(merge_range)
+    for row in rows:
+        ws.append(row)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_merged_header_slave_column_gets_column_type():
+    """When header has merged cells, slave columns inherit master's column type."""
+    # A1 merged with B1: "姓名" covers both columns; add "部门" so row1 has >1
+    # non-empty cell and detect_header_row doesn't mistake it for a title row.
+    content = _make_xlsx_with_merged_header(
+        ["姓名", None, "部门"], "A1:B1", [["张三", "李四", "技术部"]]
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals
+    assert "李四" in originals, "B2 (slave column) should inherit 姓名 column type"
+
+
+def test_merged_header_multi_column():
+    """Header with 3-column merge: all slave columns inherit master."""
+    content = _make_xlsx_with_merged_header(
+        ["姓名", None, None, "部门"],
+        "A1:C1",
+        [["张三", "李四", "王五", "技术部"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals
+    assert "李四" in originals
+    assert "王五" in originals
+    assert "技术部" in originals
+
+
+# ── v1.13.0: Label-value layout ───────────────────────────────────────────────
+
+def _make_label_value_xlsx(pairs: list[tuple[str, str]]) -> bytes:
+    """Create xlsx with A=field labels, B=values (左右结构)."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["字段", "值"])  # header row so label-value detection works
+    for label, value in pairs:
+        ws.append([label, value])
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_label_value_layout_name_anonymized():
+    """Label '姓名' in A → value in B anonymized as EMPLOYEE."""
+    content = _make_label_value_xlsx([
+        ("姓名", "张三"),
+        ("部门", "技术部"),
+        ("手机号", "13800138000"),
+        ("工号", "EMP00123"),
+    ])
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals
+    assert "技术部" in originals
+    assert "13800138000" in originals
+    assert "EMP00123" in originals
+
+    # Verify cell values are tokenized
+    wb = openpyxl.load_workbook(BytesIO(result.workbook_bytes))
+    ws = wb.active
+    assert TOKEN_RE.fullmatch(str(ws.cell(row=2, column=2).value))  # 张三→token
+    assert TOKEN_RE.fullmatch(str(ws.cell(row=3, column=2).value))  # 技术部→token
+
+
+def test_label_value_layout_multi_name():
+    """Label-value layout with multi-name cell (e.g. '张三、李四') splits correctly."""
+    content = _make_label_value_xlsx([
+        ("姓名", "张三"),
+        ("部门", "技术部"),
+        ("负责人", "张三、李四"),
+        ("手机号", "13800138000"),
+    ])
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals
+    assert "李四" in originals
+    assert "张三、李四" not in originals
+
+
+def test_label_value_layout_non_keyword_label_skipped():
+    """Label not in keywords → value is NOT anonymized."""
+    content = _make_label_value_xlsx([
+        ("备注", "这是一段备注"),
+        ("地址", "苏州工业园区"),
+    ])
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert len(originals) == 0, f"Non-keyword labels should not trigger anonymization, got: {originals}"
+
+
+def test_label_value_layout_skips_header_row():
+    """Label-value layout: header row ('字段'/'值') is skipped, data rows processed."""
+    content = _make_label_value_xlsx([
+        ("姓名", "张三"),
+        ("部门", "技术部"),
+    ])
+    result = anonymize_xlsx_bytes(content, header_row=1)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals, "Row 2 (姓名/张三) should be processed"
+    assert "技术部" in originals, "Row 3 (部门/技术部) should be processed"

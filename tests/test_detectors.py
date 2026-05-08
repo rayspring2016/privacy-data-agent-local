@@ -1,4 +1,10 @@
-from privacy_data_agent.detectors import detect_cell_entity_type, detect_column_entity_type, detect_header_row
+from privacy_data_agent.detectors import (
+    detect_cell_entity_type,
+    detect_column_entity_type,
+    detect_header_row,
+    detect_label_value_layout,
+    resolve_entity_from_label,
+)
 from privacy_data_agent.models import EntityType
 
 
@@ -205,3 +211,67 @@ def test_pure_digit_employee_id_requires_column_context():
 
     # Too long (>10 digits): probably not an employee ID
     assert detect_cell_entity_type("12345678901", column_type=EntityType.EMPLOYEE_ID) is None
+
+
+# ── v1.13.0: Label-value layout detection ──────────────────────────────────
+
+def test_resolve_entity_from_label():
+    """Labels map to correct entity types."""
+    assert resolve_entity_from_label("姓名") == EntityType.EMPLOYEE
+    assert resolve_entity_from_label("员工姓名") == EntityType.EMPLOYEE
+    assert resolve_entity_from_label("手机号") == EntityType.PHONE
+    assert resolve_entity_from_label("身份证号") == EntityType.ID_NUMBER
+    assert resolve_entity_from_label("部门") == EntityType.DEPARTMENT
+    assert resolve_entity_from_label("工资") == EntityType.SALARY
+    assert resolve_entity_from_label("备注") is None
+    assert resolve_entity_from_label("随便写的") is None
+
+
+def test_detect_label_value_layout_positive():
+    """Sheet with labels in column A → detected as label-value layout."""
+    import openpyxl
+    from io import BytesIO
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    # Row 1: header-like row (skipped by detection)
+    ws.append(["字段", "值"])
+    # Rows 2-6: label-value pairs
+    ws.append(["姓名", "张三"])
+    ws.append(["工号", "EMP001"])
+    ws.append(["部门", "技术部"])
+    ws.append(["手机号", "13800138000"])
+    ws.append(["邮箱", "test@example.com"])
+    # Detection scans rows 2–21 (header_row+1 to header_row+20)
+    assert detect_label_value_layout(ws, header_row=1) is True
+
+
+def test_detect_label_value_layout_negative_normal_table():
+    """Normal data table (names in column A) → NOT detected as label-value."""
+    import openpyxl
+    from io import BytesIO
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["姓名", "部门", "手机号"])
+    ws.append(["张三", "技术部", "13800138000"])
+    ws.append(["李四", "销售部", "13900139000"])
+    ws.append(["王五", "财务部", "13700137000"])
+    # Column A has 张三/李四/王五 — not labels
+    assert detect_label_value_layout(ws, header_row=1) is False
+
+
+def test_detect_label_value_layout_negative_too_few_labels():
+    """Sheet with only 2 labels → NOT detected (needs ≥3)."""
+    import openpyxl
+    from io import BytesIO
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["字段", "值"])
+    ws.append(["姓名", "张三"])
+    ws.append(["年龄", "30"])
+    ws.append(["备注", "无"])
+    ws.append(["地址", "苏州"])
+    # Only "姓名" is a label keyword → 1/4 = 25%, < 50%
+    assert detect_label_value_layout(ws, header_row=1) is False
