@@ -810,6 +810,14 @@ def render_anonymize() -> None:
                 unit = "个"
                 row_label = "检出实体"
                 format_name = "Word 文档" if suffix == ".docx" else "PDF 文档"
+            elif suffix == ".numbers":
+                unit = "行"
+                row_label = "数据行数"
+                format_name = "Numbers 数据文件"
+            elif suffix == ".et":
+                unit = "行"
+                row_label = "数据行数"
+                format_name = "WPS 电子表格"
             else:
                 unit = "行"
                 row_label = "数据行数"
@@ -879,6 +887,8 @@ def render_anonymize() -> None:
                 suffix = result.get("file_suffix", ".xlsx")
                 mime_map = {
                     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    ".numbers": "application/x-iwork-numbers-sffnumbers",
+                    ".et": "application/vnd.ms-excel",
                     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     ".pdf": "application/pdf",
                 }
@@ -933,8 +943,8 @@ def render_anonymize() -> None:
 
     # v1.11.0: multi-file batch uploader
     multi_files = st.file_uploader(
-        "拖拽或点击上传多个文件（Excel、CSV、DOCX、PDF）",
-        type=["csv", "xlsx", "docx", "pdf"],
+        "拖拽或点击上传多个文件（Excel、CSV、Numbers、WPS、DOCX、PDF）",
+        type=["csv", "xlsx", "numbers", "et", "docx", "pdf"],
         accept_multiple_files=True,
         key="multi_file_uploader",
         label_visibility="collapsed",
@@ -946,8 +956,8 @@ def render_anonymize() -> None:
             st.write(f"  • {f.name} ({f.size / 1024:.1f} KB)")
 
     source_file = st.file_uploader(
-        "或选择单个文件（Excel、CSV、DOCX 或 PDF 文件）",
-        type=["csv", "xlsx", "docx", "pdf"],
+        "或选择单个文件（Excel、CSV、Numbers、WPS、DOCX 或 PDF 文件）",
+        type=["csv", "xlsx", "numbers", "et", "docx", "pdf"],
         accept_multiple_files=False,
         key="source_file_uploader",
         label_visibility="collapsed",

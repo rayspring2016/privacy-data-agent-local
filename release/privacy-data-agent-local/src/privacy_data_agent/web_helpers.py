@@ -75,6 +75,8 @@ def read_uploaded_table(filename: str, content: bytes, header_row: int | None = 
         return _read_uploaded_csv(buffer, header_row)
     if suffix == ".xlsx":
         return _read_uploaded_excel(buffer, header_row)
+    if suffix == ".numbers":  # Apple Numbers
+        return _read_uploaded_numbers(buffer, header_row)
     if suffix == ".docx":
         from docx import Document
         doc = Document(BytesIO(content))
@@ -83,7 +85,7 @@ def read_uploaded_table(filename: str, content: bytes, header_row: int | None = 
             if para.text.strip():
                 texts.append(para.text.strip())
         return pd.DataFrame({"text": texts})
-    raise ValueError("Only .csv, .xlsx, and .docx files are supported.")
+    raise ValueError("Only .csv, .xlsx, .numbers, and .docx files are supported.")
 
 
 def _read_uploaded_csv(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
@@ -117,6 +119,123 @@ def _read_uploaded_excel(buffer: BytesIO, header_row: int | None) -> pd.DataFram
     return pd.read_excel(buffer, header=max(0, header_row - 1))
 
 
+def _read_uploaded_numbers(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
+    """
+    Read Apple Numbers .numbers file (ZIP containing index.xml).
+    Extracts table data from the Numbers document XML structure.
+    """
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    buffer.seek(0)
+    try:
+        with zipfile.ZipFile(buffer) as zf:
+            # Find the main table data file
+            names = zf.namelist()
+            # Numbers may store data in various places - look for table XML files
+            table_file = None
+            for name in names:
+                if "Table" in name and name.endswith(".xml"):
+                    table_file = name
+                    break
+
+            if table_file:
+                with zf.open(table_file) as f:
+                    tree = ET.parse(f)
+                    root = tree.getroot()
+                    rows = []
+                    # Navigate XML structure (Numbers format varies, extract all text cells)
+                    for elem in root.iter():
+                        if elem.tag.endswith("}row") or elem.tag == "row":
+                            row_data = []
+                            for cell in elem:
+                                text_parts = []
+                                for t in cell.iter():
+                                    if t.tag.endswith("}string") or t.tag == "string":
+                                        if t.text:
+                                            text_parts.append(t.text)
+                                    elif t.tag.endswith("}real") or t.tag == "real":
+                                        if t.text:
+                                            row_data.append(t.text)
+                                            break
+                                if text_parts:
+                                    row_data.append("".join(text_parts))
+                            if row_data:
+                                rows.append(row_data)
+            else:
+                # Fallback: try index.xml
+                with zf.open("index.xml") as f:
+                    tree = ET.parse(f)
+                    root = tree.getroot()
+                    rows = []
+                    for elem in root.iter():
+                        if elem.text and elem.text.strip():
+                            # Simple text extraction
+                            pass
+
+            if rows:
+                # Detect header row
+                if header_row is None:
+                    raw_rows = rows[:3]
+                    header_row = detect_header_row(raw_rows)
+                # Return as DataFrame
+                max_cols = max(len(r) for r in rows) if rows else 0
+                df_rows = []
+                for i, row in enumerate(rows):
+                    if i < header_row - 1:
+                        continue
+                    row_padded = row + [""] * (max_cols - len(row))
+                    df_rows.append(row_padded)
+                if df_rows:
+                    # Use first row as header if header_row > 0
+                    if header_row > 1:
+                        df = pd.DataFrame(df_rows[1:], columns=df_rows[0])
+                    else:
+                        df = pd.DataFrame(df_rows)
+                    return df
+
+            # Final fallback: try to extract any tabular data
+            with zf.open("index.xml") as f:
+                content = f.read().decode("utf-8")
+                # Parse as simple CSV-like structure
+                lines = content.replace("><", ">\n<").split("\n")
+                data_rows = []
+                for line in lines:
+                    if "<cell" in line:
+                        # Extract cell values
+                        import re
+                        cells = re.findall(r'<cell[^>]*>(.*?)</cell>', line, re.DOTALL)
+                        row = []
+                        for cell in cells:
+                            text = re.sub(r'<[^>]+>', '', cell).strip()
+                            row.append(text)
+                        if row:
+                            data_rows.append(row)
+                if data_rows:
+                    if header_row is None:
+                        raw_rows = data_rows[:3]
+                        header_row = detect_header_row(raw_rows)
+                    max_cols = max(len(r) for r in data_rows) if data_rows else 0
+                    df_rows = []
+                    for i, row in enumerate(data_rows):
+                        if i < header_row - 1:
+                            continue
+                        row_padded = row + [""] * (max_cols - len(row))
+                        df_rows.append(row_padded)
+                    if df_rows:
+                        if header_row > 1:
+                            df = pd.DataFrame(df_rows[1:], columns=df_rows[0])
+                        else:
+                            df = pd.DataFrame(df_rows)
+                        return df
+
+    except Exception:
+        pass
+
+    # If all else fails, return empty DataFrame
+    return pd.DataFrame()
+
+
 def dataframe_to_xlsx_bytes(df: pd.DataFrame) -> bytes:
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -138,6 +257,8 @@ def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suf
     anonymized_name = f"{stem}_anonymized{suffix}"
     if suffix == ".xlsx":
         file_desc = "脱敏后的 Excel 数据文件"
+    elif suffix == ".numbers":
+        file_desc = "脱敏后的 Numbers 数据文件"
     elif suffix == ".docx":
         file_desc = "脱敏后的 Word 文档"
     elif suffix == ".pdf":
@@ -185,6 +306,31 @@ def anonymize_upload(
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
+    elif suffix == ".numbers":  # Apple Numbers - treat as CSV
+        df = read_uploaded_table(filename, content, header_row=header_row)
+        result = anonymize_dataframe(df, seed_mapping=seed)
+        result_mapping = result.mapping
+        row_count = len(result.dataframe)
+        anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
+        anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
+    elif suffix == ".et":  # WPS Spreadsheet (older .xls format via pandas)
+        # .et is essentially a compressed format - try openpyxl first, fallback to pandas xlrd
+        try:
+            workbook_result = anonymize_xlsx_bytes(content, seed_mapping=seed, header_row=header_row)
+            result_mapping = workbook_result.mapping
+            row_count = workbook_result.row_count
+            anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
+            anonymized_xlsx = workbook_result.workbook_bytes
+        except Exception:
+            # Fallback: try pandas with xlrd (for older .xls format)
+            buffer = BytesIO(content)
+            xls_df = pd.read_excel(buffer, engine="xlrd")
+            buffer.seek(0)
+            result = anonymize_dataframe(xls_df, seed_mapping=seed)
+            result_mapping = result.mapping
+            row_count = len(result.dataframe)
+            anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
+            anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
     elif suffix == ".docx":
         docx_result = anonymize_docx_bytes(content, seed_mapping=seed)
         result_mapping = docx_result.mapping
