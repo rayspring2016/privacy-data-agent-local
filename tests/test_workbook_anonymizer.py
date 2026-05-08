@@ -143,6 +143,57 @@ def test_non_person_column_still_uses_cell_detection():
     assert "13800138000" in originals
 
 
+def test_unknown_column_only_uses_high_confidence_detection():
+    content = _make_xlsx(
+        ["备注"],
+        [["张三"], ["技术部"], ["13800138000"], ["zhangsan@example.com"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" not in originals
+    assert "技术部" not in originals
+    assert "13800138000" in originals
+    assert "zhangsan@example.com" in originals
+
+
+def test_departure_reason_and_job_title_default_to_pass_through():
+    content = _make_xlsx(
+        ["姓名", "岗位名称", "离职原因"],
+        [["张三", "技术部", "被动"], ["李四", "销售经理", "主动"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    wb = openpyxl.load_workbook(BytesIO(result.workbook_bytes))
+    ws = wb.active
+    originals = {e.original for e in result.mapping.entries}
+    assert "张三" in originals
+    assert "李四" in originals
+    assert "技术部" not in originals
+    assert "销售经理" not in originals
+    assert "被动" not in originals
+    assert "主动" not in originals
+    assert ws.cell(row=2, column=2).value == "技术部"
+    assert ws.cell(row=2, column=3).value == "被动"
+
+
+def test_job_title_can_be_anonymized_when_enabled():
+    content = _make_xlsx(["岗位名称"], [["技术部"], ["销售经理"]])
+    result = anonymize_xlsx_bytes(content, anonymize_job_title=True)
+    wb = openpyxl.load_workbook(BytesIO(result.workbook_bytes))
+    ws = wb.active
+    originals = {e.original for e in result.mapping.entries}
+    assert "技术部" in originals
+    assert "销售经理" in originals
+    assert TOKEN_RE.fullmatch(str(ws.cell(row=2, column=1).value))
+    assert TOKEN_RE.fullmatch(str(ws.cell(row=3, column=1).value))
+
+
+def test_job_allowlist_does_not_hide_salary_columns_with_job_prefix():
+    content = _make_xlsx(["岗位补贴"], [[1200]])
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original for e in result.mapping.entries}
+    assert "1200" in originals
+
+
 # ── v1.13.0: Merged header cells ──────────────────────────────────────────────
 
 def _make_xlsx_with_merged_header(headers: list[str], merge_range: str, rows: list[list]) -> bytes:
@@ -246,6 +297,26 @@ def test_label_value_layout_non_keyword_label_skipped():
     result = anonymize_xlsx_bytes(content)
     originals = {e.original for e in result.mapping.entries}
     assert len(originals) == 0, f"Non-keyword labels should not trigger anonymization, got: {originals}"
+
+
+def test_label_value_layout_job_title_default_pass_through_can_opt_in():
+    content = _make_label_value_xlsx([
+        ("姓名", "张三"),
+        ("部门", "技术部"),
+        ("岗位", "产品部"),
+        ("离职原因", "被动"),
+    ])
+    default_result = anonymize_xlsx_bytes(content)
+    default_originals = {e.original for e in default_result.mapping.entries}
+    assert "张三" in default_originals
+    assert "技术部" in default_originals
+    assert "产品部" not in default_originals
+    assert "被动" not in default_originals
+
+    opt_in_result = anonymize_xlsx_bytes(content, anonymize_job_title=True)
+    opt_in_originals = {e.original for e in opt_in_result.mapping.entries}
+    assert "产品部" in opt_in_originals
+    assert "被动" not in opt_in_originals
 
 
 def test_label_value_layout_skips_header_row():

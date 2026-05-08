@@ -94,6 +94,8 @@ Mac:     mac/03-launch-web-ui-mac.command
 
 **同一批次追加文件**：如果同一个分析项目需要对多个文件脱敏，展开「同一批次追加文件」区域，上传上一个文件生成的 `mapping.local.json`，系统会复用已有 token，新实体继续随机生成，最终输出包含全批次的完整匹配文件。
 
+**岗位字段**：`岗位名称` / `职位` / `职务` 默认保留，便于分析岗位结构；如岗位本身也需要隐藏，可在「字段脱敏范围」中开启岗位脱敏。`离职原因` / `离职类型` / `状态` 等业务判断列默认保留。
+
 ### 报告反脱敏
 
 支持格式：`.md` / `.txt` / `.html` / `.docx` / `.pptx`
@@ -108,6 +110,12 @@ Mac:     mac/03-launch-web-ui-mac.command
 
 ```bash
 privacy-data-agent anonymize input.csv --output-dir runs/local
+```
+
+如需同时脱敏岗位字段：
+
+```bash
+privacy-data-agent anonymize input.csv --output-dir runs/local --anonymize-job-title
 ```
 
 输出：

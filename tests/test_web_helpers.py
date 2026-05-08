@@ -3,8 +3,14 @@ from io import BytesIO
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill
+from cryptography.fernet import Fernet
 
-from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
+from privacy_data_agent.web_helpers import (
+    anonymize_batch,
+    anonymize_upload,
+    decrypt_mapping_json,
+    restore_report_upload,
+)
 
 
 def test_anonymize_upload_returns_downloadable_files():
@@ -27,6 +33,50 @@ def test_anonymize_upload_returns_downloadable_files():
     readme = zf.read("README.txt").decode("utf-8")
     assert "hr_sample" in readme
     assert "mapping.local.json" in readme
+
+
+def test_anonymize_batch_csv_outputs_xlsx_extension_and_workbook_bytes():
+    content = open("tests/fixtures/hr_sample.csv", "rb").read()
+
+    result = anonymize_batch([("hr_sample.csv", content)])
+
+    assert result["results"][0]["suffix"] == ".xlsx"
+    zf = zipfile.ZipFile(BytesIO(result["consolidated_zip"]))
+    assert "hr_sample_anonymized.xlsx" in zf.namelist()
+    output = load_workbook(BytesIO(zf.read("hr_sample_anonymized.xlsx")))
+    assert output.active["A2"].value.startswith("PDA_")
+
+
+def test_anonymize_batch_encrypted_zip_encrypts_consolidated_mapping():
+    content = open("tests/fixtures/hr_sample.csv", "rb").read()
+    key = Fernet.generate_key().decode("utf-8")
+
+    result = anonymize_batch([("hr_sample.csv", content)], encryption_key=key)
+
+    zf = zipfile.ZipFile(BytesIO(result["consolidated_zip"]))
+    encrypted_mapping = zf.read("mapping.local.json")
+    assert b"entries" not in encrypted_mapping
+    decrypted = decrypt_mapping_json(encrypted_mapping, key)
+    assert "张三" in decrypted
+    assert "mapping.local.json 已加密" in zf.read("README.txt").decode("utf-8")
+
+
+def test_anonymize_upload_csv_respects_job_title_option():
+    content = (
+        "姓名,岗位名称,离职原因,备注\r\n"
+        "张三,技术部,被动,运营部\r\n"
+    ).encode("utf-8")
+
+    default_result = anonymize_upload("jobs.csv", content)
+    assert "张三" in default_result["mapping_json"]
+    assert "技术部" not in default_result["mapping_json"]
+    assert "被动" not in default_result["mapping_json"]
+    assert "运营部" not in default_result["mapping_json"]
+
+    opt_in_result = anonymize_upload("jobs.csv", content, anonymize_job_title=True)
+    assert "技术部" in opt_in_result["mapping_json"]
+    assert "被动" not in opt_in_result["mapping_json"]
+    assert "运营部" not in opt_in_result["mapping_json"]
 
 
 def test_restore_report_upload_with_json_mapping():
