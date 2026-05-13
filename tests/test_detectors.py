@@ -6,7 +6,9 @@ from privacy_data_agent.detectors import (
     detect_high_confidence_cell_entity_type,
     detect_label_value_layout,
     detect_optional_column_entity_type,
+    detect_weak_person_column,
     is_pass_through_column,
+    looks_like_short_chinese_person_name,
     resolve_entity_from_label,
     _phone_format_suspicious,
     _email_format_suspicious,
@@ -29,6 +31,9 @@ def test_detects_column_semantics():
 
 def test_detects_common_business_sensitive_columns():
     assert detect_column_entity_type("公司名称") == EntityType.CUSTOMER
+    assert detect_column_entity_type("所属主体") == EntityType.CUSTOMER
+    assert detect_column_entity_type("法人主体") == EntityType.CUSTOMER
+    assert detect_column_entity_type("用工主体") == EntityType.CUSTOMER
     assert detect_column_entity_type("销售负责人") == EntityType.EMPLOYEE
     assert detect_column_entity_type("客户经理") == EntityType.EMPLOYEE
     assert detect_column_entity_type("责任人") == EntityType.EMPLOYEE
@@ -38,6 +43,9 @@ def test_detects_common_business_sensitive_columns():
     assert detect_column_entity_type("中心") == EntityType.DEPARTMENT
     assert detect_column_entity_type("组别") == EntityType.DEPARTMENT
     assert detect_column_entity_type("事业部") == EntityType.DEPARTMENT
+    assert detect_column_entity_type("成员") == EntityType.EMPLOYEE
+    assert detect_column_entity_type("成员所属部门") == EntityType.DEPARTMENT
+    assert detect_column_entity_type("所属部门") == EntityType.DEPARTMENT
 
 
 def test_detects_cell_patterns_without_column_hint():
@@ -45,6 +53,23 @@ def test_detects_cell_patterns_without_column_hint():
     assert detect_cell_entity_type("13800138000") == EntityType.PHONE
     assert detect_cell_entity_type("zhangsan@example.com") == EntityType.EMAIL
     assert detect_cell_entity_type("120000") is None
+
+
+def test_detects_hierarchical_department_values():
+    assert detect_cell_entity_type("产品中心-设计部") == EntityType.DEPARTMENT
+    assert detect_cell_entity_type("产品中心/设计部") == EntityType.DEPARTMENT
+    assert detect_cell_entity_type("产品中心／设计部") == EntityType.DEPARTMENT
+
+
+def test_weak_person_column_and_short_name_fallback():
+    assert detect_column_entity_type("对象") is None
+    assert detect_weak_person_column("对象") is True
+    assert detect_weak_person_column("考核对象") is True
+    assert looks_like_short_chinese_person_name("张三") is True
+    assert looks_like_short_chinese_person_name("欧阳婷婷") is True
+    assert looks_like_short_chinese_person_name("诸葛小明明") is True
+    assert looks_like_short_chinese_person_name("技术部") is False
+    assert looks_like_short_chinese_person_name("张主管") is False
 
 
 def test_high_confidence_cell_detection_excludes_names_and_departments():
@@ -380,4 +405,3 @@ def test_email_format_suspicious_rejects_test_addresses():
     assert _email_format_suspicious("test@example.com") is True
     assert _email_format_suspicious("测试@163.com") is True
     assert _email_format_suspicious("zhangsan@163.com") is False  # 正常邮箱
-

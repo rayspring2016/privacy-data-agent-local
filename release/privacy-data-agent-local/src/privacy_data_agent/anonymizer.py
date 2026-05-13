@@ -9,7 +9,9 @@ from privacy_data_agent.detectors import (
     detect_column_entity_type,
     detect_high_confidence_cell_entity_type,
     detect_optional_column_entity_type,
+    detect_weak_person_column,
     is_pass_through_column,
+    looks_like_short_chinese_person_name,
 )
 from privacy_data_agent.models import ANON_TOKEN_PREFIX, EntityType, MappingEntry, MappingFile
 
@@ -64,6 +66,7 @@ def anonymize_dataframe(
         column_type = detect_column_entity_type(column_name)
         if column_type is None and anonymize_job_title:
             column_type = detect_optional_column_entity_type(column_name)
+        is_weak_person_column = column_type is None and detect_weak_person_column(column_name)
         for row_index, value in output[column].items():
             text = "" if pd.isna(value) else str(value).strip()
             if not text:
@@ -72,6 +75,8 @@ def anonymize_dataframe(
             if column_type == EntityType.DEPARTMENT and not anonymize_department:
                 continue
             entity_type = column_type or detect_high_confidence_cell_entity_type(text)
+            if entity_type is None and is_weak_person_column and looks_like_short_chinese_person_name(text):
+                entity_type = EntityType.EMPLOYEE
             if entity_type is None:
                 continue
             output.at[row_index, column] = state.token_for(entity_type, text)

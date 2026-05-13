@@ -14,10 +14,12 @@ from privacy_data_agent.detectors import (
     detect_high_confidence_cell_entity_type,
     detect_header_row,
     detect_optional_column_entity_type,
+    detect_weak_person_column,
     detect_label_value_layout,
     is_pass_through_column,
     resolve_entity_from_label,
     CHINESE_NAME_RE,
+    looks_like_short_chinese_person_name,
     _looks_like_chinese_name,
 )
 from privacy_data_agent.models import EntityType, MappingFile
@@ -136,6 +138,7 @@ def anonymize_xlsx_bytes(
                     column_type = detect_column_entity_type(column_name)
                     if column_type is None and anonymize_job_title:
                         column_type = detect_optional_column_entity_type(column_name)
+                    is_weak_person_column = column_type is None and detect_weak_person_column(column_name)
                     if column_type == EntityType.EMPLOYEE:
                         segments = _split_person_cell(text)
                         if len(segments) <= 1:
@@ -157,6 +160,12 @@ def anonymize_xlsx_bytes(
                             if column_type == EntityType.DEPARTMENT and not anonymize_department
                             else column_type
                         ) or detect_high_confidence_cell_entity_type(text)
+                        if (
+                            entity_type is None
+                            and is_weak_person_column
+                            and looks_like_short_chinese_person_name(text)
+                        ):
+                            entity_type = EntityType.EMPLOYEE
                         if entity_type is None:
                             continue
                         cell.value = state.token_for(entity_type, text)

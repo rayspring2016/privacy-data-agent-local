@@ -194,6 +194,44 @@ def test_job_allowlist_does_not_hide_salary_columns_with_job_prefix():
     assert "1200" in originals
 
 
+def test_member_and_member_department_columns_anonymized_in_xlsx():
+    content = _make_xlsx(
+        ["成员", "成员所属部门"],
+        [["张三", "产品中心-设计部"], ["李四", "产品中心/研发部"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["张三"] == "employee"
+    assert originals["李四"] == "employee"
+    assert originals["产品中心-设计部"] == "department"
+    assert originals["产品中心/研发部"] == "department"
+
+
+def test_weak_person_object_column_anonymized_in_xlsx():
+    content = _make_xlsx(
+        ["对象", "备注"],
+        [["张三", "李四"], ["欧阳婷婷", "王五"], ["技术部", "赵六"], ["张主管", "陈七"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["张三"] == "employee"
+    assert originals["欧阳婷婷"] == "employee"
+    assert "技术部" not in originals
+    assert "张主管" not in originals
+    assert "李四" not in originals
+
+
+def test_subject_columns_are_anonymized_as_customer_in_xlsx():
+    content = _make_xlsx(
+        ["所属主体", "法人主体"],
+        [["上海春雷科技有限公司", "深圳远山科技有限公司"]],
+    )
+    result = anonymize_xlsx_bytes(content)
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["上海春雷科技有限公司"] == "customer"
+    assert originals["深圳远山科技有限公司"] == "customer"
+
+
 # ── v1.13.0: Merged header cells ──────────────────────────────────────────────
 
 def _make_xlsx_with_merged_header(headers: list[str], merge_range: str, rows: list[list]) -> bytes:

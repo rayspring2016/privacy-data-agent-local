@@ -32,11 +32,12 @@ DOCUMENT_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], EntityType], ...] = (
     ),
     (re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{1,3}\d{4,10}(?![A-Za-z0-9])"), EntityType.EMPLOYEE_ID),
     (
-        # Department names: pure Chinese (e.g. "技术部", "产品研发中心")
+        # Department names: pure Chinese (e.g. "技术部", "产品研发中心", "产品中心-设计部")
         re.compile(
             r"(?<![一-龥A-Za-z0-9])"
             r"[一-龥]{1,8}"
             r"(?:事业部|中心|[部组处科室]|大区|区域)"
+            r"(?:[-/／\\][一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域))*"
             r"(?![门分署落位件队族首])",
         ),
         EntityType.DEPARTMENT,
@@ -48,13 +49,14 @@ DOCUMENT_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], EntityType], ...] = (
             r"[A-Za-z]{1,4} ?"
             r"[一-龥]{1,8}"
             r"(?:事业部|中心|[部组处科室]|大区|区域)"
+            r"(?:[-/／\\][一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域))*"
             r"(?![门分署落位件队族首])",
         ),
         EntityType.DEPARTMENT,
     ),
 )
 LABELED_CHINESE_NAME_RE = re.compile(
-    r"(?:姓名|员工|人员|负责人|联系人|对接人|客户经理|顾问|name|employee|owner|manager)(?:\s*[:：=]\s*|\s+)([一-龥]{2,4})",
+    r"(?:姓名|员工|成员|人员|负责人|联系人|对接人|客户经理|顾问|name|employee|owner|manager)(?:\s*[:：=]\s*|\s+)([一-龥]{2,4})",
     re.IGNORECASE,
 )
 
@@ -102,7 +104,7 @@ _SEGMENT_RE = re.compile(r"[一-龥]{2,4}")
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
 DOCUMENT_LABEL_WORDS = frozenset(
     {
-        "姓名", "员工", "人员", "负责人", "联系人", "对接人",
+        "姓名", "员工", "成员", "人员", "负责人", "联系人", "对接人",
         "客户经理", "顾问", "岗位", "部门", "总分", "人数",
         "人均", "人次", "人效", "人天", "指标", "结果",
         "月份", "限制", "影响", "说明", "项目", "来源",

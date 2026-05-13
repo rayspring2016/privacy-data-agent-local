@@ -38,6 +38,16 @@ PASS_THROUGH_COLUMN_HINTS = (
     "变动原因",
     "状态",
 )
+WEAK_PERSON_COLUMN_HINTS = (
+    "对象",
+    "考核对象",
+    "评价对象",
+    "评估对象",
+    "访谈对象",
+    "处理对象",
+    "目标对象",
+    "关联对象",
+)
 
 COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     (
@@ -45,6 +55,7 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
         (
             "姓名",
             "员工",
+            "成员",
             "人员",
             "负责人",
             "联系人",
@@ -92,6 +103,10 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
             "中心",
             "组别",
             "小组",
+            "所属部门",
+            "部门名称",
+            "所属组织",
+            "组织名称",
             "团队",
             "事业部",
             "大区",
@@ -114,6 +129,10 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
             "公司名称",
             "企业",
             "企业名称",
+            "主体",
+            "所属主体",
+            "法人主体",
+            "用工主体",
             "单位",
             "单位名称",
             "商户",
@@ -177,8 +196,9 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
 # 当Excel表单是A列=字段标签/B列=实际值的竖排布局时使用
 
 LABEL_VALUE_KEYWORDS: frozenset[str] = frozenset({
-    "姓名", "工号", "员工号", "员工编号", "编号",
-    "部门", "组织", "中心", "组别",
+    "姓名", "成员", "工号", "员工号", "员工编号", "编号",
+    "部门", "所属部门", "部门名称", "组织", "所属组织", "组织名称", "中心", "组别",
+    "主体", "所属主体", "法人主体", "用工主体",
     "手机号", "电话", "邮箱",
     "身份证", "身份证号",
     "车牌", "车牌号",
@@ -266,8 +286,18 @@ def detect_optional_column_entity_type(column_name: str) -> EntityType | None:
     return None
 
 
+def detect_weak_person_column(column_name: str) -> bool:
+    normalized = _normalize_column_name(column_name)
+    return any(hint in normalized for hint in WEAK_PERSON_COLUMN_HINTS)
+
+
 def detect_column_entity_type(column_name: str) -> EntityType | None:
     normalized = _normalize_column_name(column_name)
+    if any(
+        hint in normalized
+        for hint in ("所属部门", "部门名称", "所属组织", "组织名称")
+    ):
+        return EntityType.DEPARTMENT
     if _looks_like_person_column(normalized):
         return EntityType.EMPLOYEE
     # SALARY列排除：绩效评分/等级/考核（不是薪酬数字，是考核结果）
@@ -585,6 +615,23 @@ def _looks_like_chinese_name(text: str) -> bool:
 looks_like_chinese_name = _looks_like_chinese_name
 
 
+SHORT_CHINESE_PERSON_RE = re.compile(r"^[一-龥]{2,5}$")
+
+
+def looks_like_short_chinese_person_name(text: str) -> bool:
+    """Stricter short-name fallback for weak person columns such as "对象"."""
+    if not SHORT_CHINESE_PERSON_RE.match(text):
+        return False
+    if _looks_like_chinese_name(text):
+        return True
+    if len(text) == 5 and text[:2] in SURNAME_SET:
+        remaining = text[2:]
+        if text in NON_NAME_BLACKLIST or remaining in JOB_TITLE_TERM_BLACKLIST:
+            return False
+        return True
+    return False
+
+
 # ── 手机号/邮箱二次格式校验 ─────────────────────────────────────────
 # 在强正则匹配后，作为辅助校验层进一步排除误报。
 # 原则：只排除"明显不对"的情况，不排除合理的边界值。
@@ -627,11 +674,13 @@ def _email_format_suspicious(text: str) -> bool:
 
 CHINESE_NAME_RE = re.compile(r"^[一-龥]{2,4}$")
 # Matches department names like "技术部", "AI 数据部", "SMB 苏州 1 组", "产品研发中心", "业务线".
+# Also supports hierarchical departments such as "产品中心-设计部" and "产品中心/设计部".
 # - Allows spaces and numbers in department name (e.g. "苏州 1 组", "SMB 苏州 1 组")
 # - Long patterns (事业部, 业务线, 小组) must come BEFORE short chars in the alternation
 # - English prefix + space is allowed (e.g. "SMB ")
 DEPARTMENT_RE = re.compile(
-    r"^(?:[A-Za-z]{1,4}[ \t]?)?[一-龥 0-9]{1,25}(?:事业部|业务线|中心|小组|[部组处科室]|大区|区域)$"
+    r"^(?:[A-Za-z]{1,4}[ \t]?)?[一-龥 0-9]{1,25}(?:事业部|业务线|中心|小组|[部组处科室]|大区|区域)"
+    r"(?:[-/／\\][一-龥 0-9]{1,25}(?:事业部|业务线|中心|小组|[部组处科室]|大区|区域))*$"
 )
 DETECTORS_BY_RE = [
     (ID_NUMBER_RE, EntityType.ID_NUMBER),

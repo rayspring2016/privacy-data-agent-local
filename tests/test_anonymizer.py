@@ -64,6 +64,61 @@ def test_reuses_same_token_for_repeated_value():
     assert len(result.mapping.entries) == 1
 
 
+def test_member_and_member_department_columns_anonymized():
+    df = pd.DataFrame({
+        "成员": ["张三", "李四"],
+        "成员所属部门": ["产品中心-设计部", "产品中心/研发部"],
+    })
+
+    result = anonymize_dataframe(df)
+
+    csv_text = result.dataframe.to_csv(index=False)
+    for raw in ["张三", "李四", "产品中心-设计部", "产品中心/研发部"]:
+        assert raw not in csv_text
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["张三"] == EntityType.EMPLOYEE
+    assert originals["产品中心-设计部"] == EntityType.DEPARTMENT
+
+
+def test_weak_person_object_column_uses_short_name_fallback():
+    df = pd.DataFrame({
+        "对象": ["张三", "欧阳婷婷", "诸葛小明明", "技术部", "张主管"],
+        "备注": ["李四", "王五", "赵六", "陈七", "孙八"],
+    })
+
+    result = anonymize_dataframe(df)
+
+    csv_text = result.dataframe.to_csv(index=False)
+    for raw in ["张三", "欧阳婷婷", "诸葛小明明"]:
+        assert raw not in csv_text
+    for raw in ["技术部", "张主管", "李四", "王五", "赵六", "陈七", "孙八"]:
+        assert raw in csv_text
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["张三"] == EntityType.EMPLOYEE
+    assert originals["诸葛小明明"] == EntityType.EMPLOYEE
+
+
+def test_subject_columns_are_anonymized_as_customer():
+    df = pd.DataFrame({
+        "所属主体": ["上海春雷科技有限公司", "北京星河管理咨询有限公司"],
+        "法人主体": ["深圳远山科技有限公司", "杭州云舟信息技术有限公司"],
+    })
+
+    result = anonymize_dataframe(df)
+
+    csv_text = result.dataframe.to_csv(index=False)
+    for raw in [
+        "上海春雷科技有限公司",
+        "北京星河管理咨询有限公司",
+        "深圳远山科技有限公司",
+        "杭州云舟信息技术有限公司",
+    ]:
+        assert raw not in csv_text
+    originals = {e.original: e.entity_type for e in result.mapping.entries}
+    assert originals["上海春雷科技有限公司"] == EntityType.CUSTOMER
+    assert originals["深圳远山科技有限公司"] == EntityType.CUSTOMER
+
+
 def test_independent_batches_produce_different_tokens():
     """Without a seed, the same value in two separate batches should get different tokens."""
     df = pd.DataFrame({"姓名": ["张三"]})
