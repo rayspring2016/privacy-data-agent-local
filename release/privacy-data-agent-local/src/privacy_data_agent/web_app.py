@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
@@ -657,9 +656,9 @@ def render_anonymize() -> None:
         if key not in st.session_state:
             st.session_state[key] = default
 
-    has_single = st.session_state.anonymize_file is not None
-    has_multi = bool(st.session_state.anonymize_files)
-    has_file = has_single or has_multi
+    selected_files = list(st.session_state.anonymize_files or [])
+    has_file = bool(selected_files)
+    use_batch = len(selected_files) > 1
     proc = st.session_state.processing
     has_single_result = st.session_state.anonymize_result is not None
     has_batch_result = st.session_state.anonymize_batch_result is not None
@@ -687,10 +686,10 @@ def render_anonymize() -> None:
                 else:
                     _header_row = st.session_state.get("custom_header_row", 1)
 
-                if has_multi:
+                if use_batch:
                     from privacy_data_agent.web_helpers import anonymize_batch
 
-                    files = [(f.name, f.getvalue()) for f in st.session_state.anonymize_files]
+                    files = [(f.name, f.getvalue()) for f in selected_files]
                     batch_result = anonymize_batch(
                         files,
                         first_seed_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
@@ -705,9 +704,10 @@ def render_anonymize() -> None:
                     st.session_state.processing = False
                     st.rerun()
                 else:
+                    uploaded_file = selected_files[0]
                     result = anonymize_upload(
-                        st.session_state.anonymize_file.name,
-                        st.session_state.anonymize_file.getvalue(),
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
                         seed_mapping_filename=st.session_state.seed_file.name if st.session_state.seed_file else None,
                         seed_mapping_content=st.session_state.seed_file.getvalue() if st.session_state.seed_file else None,
                         header_row=_header_row,
@@ -802,10 +802,11 @@ def render_anonymize() -> None:
                         cols[0].metric("数据行数", r["row_count"])
                         cols[1].metric("新增实体", r["new_entity_count"])
                         cols[2].metric("累计实体", r["entity_count"])
+                        download_name = r.get("download_name", f"{r['stem']}_anonymized{suffix}")
                         st.download_button(
-                            f"下载 {r['stem']}{suffix}",
+                            f"下载 {download_name}",
                             data=r["anonymized_bytes"],
-                            file_name=f"{r['stem']}_anonymized{suffix}",
+                            file_name=download_name,
                             mime="application/octet-stream",
                             use_container_width=True,
                             key=f"download_batch_file_{i}",
@@ -954,43 +955,21 @@ def render_anonymize() -> None:
     st.markdown("### 第一步：选择需要脱敏的文件")
     st.caption("支持单文件或多文件批量处理，多文件将自动累积匹配结果。")
 
-    # v1.11.0: multi-file batch uploader
-    multi_files = st.file_uploader(
-        "拖拽或点击上传多个文件（Excel、CSV、Numbers、WPS、DOCX、PDF）",
+    uploaded_files = st.file_uploader(
+        "拖拽或点击上传文件（Excel、CSV、Numbers、WPS、DOCX、PDF）",
         type=["csv", "xlsx", "numbers", "et", "docx", "pdf"],
         accept_multiple_files=True,
         key="multi_file_uploader",
         label_visibility="collapsed",
     )
-    st.session_state.anonymize_files = list(multi_files or [])
-    has_multi = bool(st.session_state.anonymize_files)
-    if multi_files:
-        st.success(f"已选择 {len(multi_files)} 个文件：")
-        for f in multi_files:
+    st.session_state.anonymize_files = list(uploaded_files or [])
+    st.session_state.anonymize_file = st.session_state.anonymize_files[0] if len(st.session_state.anonymize_files) == 1 else None
+    has_file = bool(st.session_state.anonymize_files)
+    use_batch = len(st.session_state.anonymize_files) > 1
+    if uploaded_files:
+        st.success(f"已选择 {len(uploaded_files)} 个文件：")
+        for f in uploaded_files:
             st.write(f"  • {f.name} ({f.size / 1024:.1f} KB)")
-
-    source_file = st.file_uploader(
-        "或选择单个文件（Excel、CSV、Numbers、WPS、DOCX 或 PDF 文件）",
-        type=["csv", "xlsx", "numbers", "et", "docx", "pdf"],
-        accept_multiple_files=False,
-        key="source_file_uploader",
-        label_visibility="collapsed",
-    )
-
-    st.session_state.anonymize_file = source_file
-    has_single = st.session_state.anonymize_file is not None
-    has_file = has_single or has_multi
-
-    if source_file is not None:
-        st.markdown(
-            f"""
-            <div class="pda-selected-file">
-                <p>文件已选择</p>
-                <p>{source_file.name} ({source_file.size / 1024:.1f} KB)</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
     if has_file:
         st.markdown("### 第二步：处理前预览（可选）")
@@ -999,36 +978,17 @@ def render_anonymize() -> None:
         with st.expander("📊 预览数据概览与实体分布", expanded=False):
             from privacy_data_agent.detectors import (
                 detect_column_entity_type,
-                detect_header_row,
                 detect_optional_column_entity_type,
                 is_pass_through_column,
             )
-            from privacy_data_agent.models import EntityType
+            from privacy_data_agent.web_helpers import read_uploaded_table
             import pandas as pd
 
             def _preview_single_file(uploaded_file) -> pd.DataFrame:
                 suffix = Path(uploaded_file.name).suffix.lower()
-                buffer = BytesIO(uploaded_file.getvalue())
-                if suffix == ".csv":
-                    lines = []
-                    for _ in range(3):
-                        line = buffer.readline()
-                        if line:
-                            lines.append(line.decode("utf-8-sig").strip())
-                    buffer.seek(0)
-                    header_row = detect_header_row([line.split(",") for line in lines]) if lines else 1
-                    df = pd.read_csv(buffer, nrows=5, encoding="utf-8-sig", header=max(0, header_row - 1))
-                elif suffix == ".xlsx":
-                    raw = pd.read_excel(buffer, nrows=3, header=None, engine="openpyxl")
-                    buffer.seek(0)
-                    raw_rows = [
-                        [str(c) if pd.notna(c) else "" for c in raw.iloc[i].tolist()]
-                        for i in range(min(3, len(raw)))
-                    ]
-                    header_row = detect_header_row(raw_rows)
-                    df = pd.read_excel(buffer, nrows=5, header=max(0, header_row - 1), engine="openpyxl")
-                else:
+                if suffix not in (".csv", ".xlsx"):
                     return pd.DataFrame()
+                df = read_uploaded_table(uploaded_file.name, uploaded_file.getvalue()).head(5)
                 col_info = []
                 for col in df.columns:
                     col_name = str(col) if not isinstance(col, int) else f"列{col+1}"
@@ -1051,7 +1011,7 @@ def render_anonymize() -> None:
                     })
                 return pd.DataFrame(col_info)
 
-            if has_multi:
+            if use_batch:
                 for f in st.session_state.anonymize_files:
                     preview_df = _preview_single_file(f)
                     st.markdown(f"**📄 {f.name}**")
@@ -1061,6 +1021,7 @@ def render_anonymize() -> None:
                         st.caption("（DOCX/PDF 格式暂不支持预览）")
                     st.divider()
             else:
+                source_file = st.session_state.anonymize_files[0]
                 preview_df = _preview_single_file(source_file)
                 if not preview_df.empty:
                     st.dataframe(preview_df, use_container_width=True, hide_index=True)
@@ -1122,8 +1083,8 @@ def render_anonymize() -> None:
             )
             st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
 
-        source_suffix = Path(source_file.name).suffix.lower() if source_file else ""
-        has_table_file = has_multi or source_suffix in (".xlsx", ".csv", ".numbers", ".et")
+        table_suffixes = {Path(f.name).suffix.lower() for f in st.session_state.anonymize_files}
+        has_table_file = bool(table_suffixes & {".xlsx", ".csv", ".numbers", ".et"})
         if has_table_file:
             with st.expander("表格格式配置（可选）", expanded=False):
                 st.markdown(
@@ -1190,6 +1151,7 @@ _RESTORE_MIME = {
     ".txt": "text/plain",
     ".html": "text/html",
     ".htm": "text/html",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
@@ -1282,8 +1244,8 @@ def render_restore() -> None:
     # ── Upload phase ──────────────────────────────────────────────────────────
     st.markdown("### 第一步：选择待恢复的报告文件")
     report_file = st.file_uploader(
-        "支持 md / txt / html / docx / pptx 等格式",
-        type=["md", "txt", "html", "htm", "docx", "pptx"],
+        "支持 md / txt / html / xlsx / docx / pptx 等格式",
+        type=["md", "txt", "html", "htm", "xlsx", "docx", "pptx"],
         accept_multiple_files=False,
         key="report_file_uploader",
         label_visibility="collapsed",

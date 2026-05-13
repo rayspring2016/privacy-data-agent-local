@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import zipfile
-from io import BytesIO
+import csv
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import pandas as pd
@@ -89,22 +90,32 @@ def read_uploaded_table(filename: str, content: bytes, header_row: int | None = 
 
 
 def _read_uploaded_csv(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
+    text = _decode_csv_bytes(buffer.getvalue())
     if header_row is None:
-        header_row = _detect_csv_header_row(buffer)
-        buffer.seek(0)
-    return pd.read_csv(buffer, header=max(0, header_row - 1))
+        header_row = _detect_csv_header_row(text)
+    return pd.read_csv(StringIO(text), header=max(0, header_row - 1))
 
 
-def _detect_csv_header_row(buffer: BytesIO) -> int:
+def _decode_csv_bytes(content: bytes) -> str:
+    for encoding in ("utf-8-sig", "utf-8", "gb18030", "gbk", "big5"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8-sig", errors="replace")
+
+
+def _detect_csv_header_row(text: str) -> int:
     lines = []
-    for _ in range(3):
-        line = buffer.readline()
-        if line:
-            lines.append(line.decode("utf-8-sig").strip())
+    reader = csv.reader(StringIO(text))
+    for row in reader:
+        if row:
+            lines.append(row)
+        if len(lines) >= 3:
+            break
     if not lines:
         return 1
-    raw_rows = [line.split(",") for line in lines]
-    return detect_header_row(raw_rows)
+    return detect_header_row(lines)
 
 
 def _read_uploaded_excel(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
@@ -455,6 +466,7 @@ def anonymize_batch(
         accumulated = load_local_mapping(seed_path)
 
     results: list[dict] = []
+    used_output_names: set[str] = set()
     total_rows = 0
     total_new = 0
     total_all = 0
@@ -517,10 +529,12 @@ def anonymize_batch(
         total_all = len(mapping.entries)
 
         mapping_json = mapping.model_dump_json(indent=2)
+        download_name = _unique_output_name(Path(filename).stem, output_suffix, used_output_names)
 
         results.append({
             "stem": Path(filename).stem,
             "suffix": output_suffix,
+            "download_name": download_name,
             "row_count": row_count,
             "new_entity_count": new_count,
             "entity_count": len(mapping.entries),
@@ -553,7 +567,7 @@ def anonymize_batch(
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for r in results:
-            zf.writestr(f"{r['stem']}_anonymized{r['suffix']}", r["anonymized_bytes"])
+            zf.writestr(r["download_name"], r["anonymized_bytes"])
         mapping_bytes = (
             encrypt_mapping_json(final_mapping_json, encryption_key)
             if encryption_key
@@ -578,6 +592,17 @@ def anonymize_batch(
         "consolidated_zip": consolidated_zip,
         "results": results,
     }
+
+
+def _unique_output_name(stem: str, suffix: str, used_names: set[str]) -> str:
+    base = f"{stem}_anonymized"
+    name = f"{base}{suffix}"
+    index = 2
+    while name in used_names:
+        name = f"{base}_{index}{suffix}"
+        index += 1
+    used_names.add(name)
+    return name
 
 
 def restore_report_upload(

@@ -47,6 +47,30 @@ def test_anonymize_batch_csv_outputs_xlsx_extension_and_workbook_bytes():
     assert output.active["A2"].value.startswith("PDA_")
 
 
+def test_anonymize_batch_multiple_csv_handles_chinese_encodings_and_duplicate_names():
+    utf8_content = (
+        "员工姓名,部门,客户名称\r\n"
+        "张三,销售一部,上海春雷科技有限公司\r\n"
+    ).encode("utf-8-sig")
+    gb18030_content = (
+        "员工姓名,部门,客户名称\r\n"
+        "李四,运营二部,北京星河科技有限公司\r\n"
+    ).encode("gb18030")
+
+    result = anonymize_batch([
+        ("export.csv", utf8_content),
+        ("export.csv", gb18030_content),
+    ])
+
+    assert result["files_processed"] == 2
+    assert result["total_rows"] == 2
+    zf = zipfile.ZipFile(BytesIO(result["consolidated_zip"]))
+    assert "export_anonymized.xlsx" in zf.namelist()
+    assert "export_anonymized_2.xlsx" in zf.namelist()
+    assert "张三" in result["final_mapping_json"]
+    assert "李四" in result["final_mapping_json"]
+
+
 def test_anonymize_batch_encrypted_zip_encrypts_consolidated_mapping():
     content = open("tests/fixtures/hr_sample.csv", "rb").read()
     key = Fernet.generate_key().decode("utf-8")
@@ -100,6 +124,29 @@ def test_restore_report_upload_with_json_mapping():
     assert "张三" in text
     assert "上海春雷科技有限公司" in text
     assert result["filename"] == "report.restored.md"
+
+
+def test_restore_report_upload_with_xlsx_report():
+    content = open("tests/fixtures/hr_sample.csv", "rb").read()
+    anonymized = anonymize_upload("hr_sample.csv", content)
+
+    result = restore_report_upload(
+        report_content=anonymized["anonymized_xlsx"],
+        report_filename="report.xlsx",
+        mapping_filename="mapping.local.json",
+        mapping_content=str(anonymized["mapping_json"]).encode("utf-8"),
+    )
+
+    workbook = load_workbook(BytesIO(result["content"]))
+    values = [
+        cell.value
+        for row in workbook.active.iter_rows()
+        for cell in row
+        if isinstance(cell.value, str)
+    ]
+    assert "张三" in values
+    assert "上海春雷科技有限公司" in values
+    assert result["filename"] == "report.restored.xlsx"
 
 
 def test_anonymize_upload_preserves_xlsx_sheets_hidden_state_and_styles():

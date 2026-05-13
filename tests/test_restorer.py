@@ -79,3 +79,31 @@ def test_restore_bytes_pptx():
     combined = " ".join(texts)
     assert "张三" in combined
     assert "春雷科技" in combined
+
+
+def test_restore_bytes_xlsx():
+    from io import BytesIO
+
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.styles import PatternFill
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "报告"
+    sheet["A1"] = "PDA_AAAA"
+    sheet["B1"] = "PDA_AAAA 负责 PDA_BBBB。"
+    sheet["A1"].fill = PatternFill("solid", fgColor="FFCC00")
+    hidden = workbook.create_sheet("隐藏")
+    hidden.sheet_state = "hidden"
+    hidden["A1"] = "PDA_BBBB"
+    buf = BytesIO()
+    workbook.save(buf)
+
+    result = restore_bytes(buf.getvalue(), "report.xlsx", _make_mapping())
+
+    restored = load_workbook(BytesIO(result))
+    assert restored["报告"]["A1"].value == "张三"
+    assert restored["报告"]["B1"].value == "张三 负责 春雷科技。"
+    assert restored["报告"]["A1"].fill.fgColor.rgb == "00FFCC00"
+    assert restored["隐藏"].sheet_state == "hidden"
+    assert restored["隐藏"]["A1"].value == "春雷科技"

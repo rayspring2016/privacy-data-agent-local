@@ -67,6 +67,23 @@ def _restore_pptx(content: bytes, mapping: MappingFile) -> bytes:
     return buf.getvalue()
 
 
+def _restore_xlsx(content: bytes, mapping: MappingFile) -> bytes:
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(BytesIO(content))
+    for worksheet in workbook.worksheets:
+        for row in worksheet.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str):
+                    replaced = _replace_all(cell.value, mapping)
+                    if replaced != cell.value:
+                        cell.value = replaced
+
+    buf = BytesIO()
+    workbook.save(buf)
+    return buf.getvalue()
+
+
 def _restore_pdf(content: bytes, mapping: MappingFile) -> bytes:
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import ArrayObject, ContentStream, TextStringObject
@@ -105,6 +122,8 @@ def _restore_pdf(content: bytes, mapping: MappingFile) -> bytes:
 
 def restore_bytes(content: bytes, filename: str, mapping: MappingFile) -> bytes:
     suffix = Path(filename).suffix.lower()
+    if suffix == ".xlsx":
+        return _restore_xlsx(content, mapping)
     if suffix == ".docx":
         return _restore_docx(content, mapping)
     if suffix == ".pptx":
