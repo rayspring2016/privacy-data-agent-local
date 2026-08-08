@@ -1,8 +1,87 @@
 from __future__ import annotations
 
 import re
+from enum import StrEnum
 
 from privacy_data_agent.models import EntityType
+
+
+class SalaryGroup(StrEnum):
+    """SALARY 列的子分组。口径由用户人工裁定（2026-08-08），不是 AI 猜的。
+
+    分组存在的理由：不同薪资子类敏感度不同（个人薪酬 vs 社保 vs 聚合人力成本），
+    单一布尔开关会强迫「要么全露要么全藏」，无法支持「放开人力成本做人效分析，
+    但不暴露个人年薪」这类真实场景。
+    """
+
+    PERSONAL_COMP = "personal_comp"
+    SOCIAL_INSURANCE = "social_insurance"
+    LABOR_COST = "labor_cost"
+    ALLOWANCE = "allowance"
+    COMMISSION = "commission"
+    PERFORMANCE_PAY = "performance_pay"
+
+
+SALARY_GROUPS: dict[SalaryGroup, tuple[str, ...]] = {
+    SalaryGroup.PERSONAL_COMP: (
+        "工资",
+        "薪资",
+        "薪酬",
+        "底薪",
+        "基本工资",
+        "应发工资",
+        "实发工资",
+        "税前工资",
+        "税后工资",
+        "年薪",
+        "月薪",
+        "日薪",
+        "报酬",
+        "salary",
+        "wage",
+        "compensation",
+        "pay",
+    ),
+    SalaryGroup.SOCIAL_INSURANCE: (
+        "社保",
+        "公积金",
+        "社保公积金",
+        "五险一金",
+    ),
+    # 人力成本/收入：聚合口径，人效分析要放开的正是这一组
+    SalaryGroup.LABOR_COST: (
+        "人力成本",
+        "收入",
+    ),
+    SalaryGroup.ALLOWANCE: (
+        "补贴",
+        "餐补",
+        "交通补贴",
+        "通讯补贴",
+        "住房补贴",
+        "高温补贴",
+        "岗位补贴",
+        "其他补贴",
+    ),
+    SalaryGroup.COMMISSION: (
+        "提成",
+        "佣金",
+    ),
+    # 绩效工资/绩效奖金：与考核结果挂钩，归绩效而非个人薪酬包
+    SalaryGroup.PERFORMANCE_PAY: (
+        "奖金",
+        "年终奖",
+        "绩效工资",
+        "绩效奖金",
+        "bonus",
+    ),
+}
+
+# 供 COLUMN_HINTS 复用：拆分之前 SALARY 是单一扁平关键词表，这里从
+# SALARY_GROUPS 派生回同一份关键词全集，避免两处重复维护（DRY）。
+_ALL_SALARY_KEYWORDS: tuple[str, ...] = tuple(
+    keyword for keywords in SALARY_GROUPS.values() for keyword in keywords
+)
 
 ID_NUMBER_RE = re.compile(r"^\d{17}[\dXx]$")
 PHONE_RE = re.compile(r"^(?:\+?86[- ]?)?1[3-9]\d{9}$")
@@ -145,49 +224,7 @@ COLUMN_HINTS: tuple[tuple[EntityType, tuple[str, ...]], ...] = (
     ),
     (EntityType.PHONE, ("手机号", "电话", "phone", "mobile")),
     (EntityType.EMAIL, ("邮箱", "email", "e-mail")),
-    (
-        EntityType.SALARY,
-        (
-            "工资",
-            "薪资",
-            "薪酬",
-            "底薪",
-            "基本工资",
-            "应发工资",
-            "实发工资",
-            "税前工资",
-            "税后工资",
-            "奖金",
-            "年终奖",
-            "绩效工资",
-            "绩效奖金",
-            "提成",
-            "佣金",
-            "补贴",
-            "餐补",
-            "交通补贴",
-            "通讯补贴",
-            "住房补贴",
-            "高温补贴",
-            "岗位补贴",
-            "其他补贴",
-            "五险一金",
-            "社保",
-            "公积金",
-            "社保公积金",
-            "人力成本",
-            "年薪",
-            "月薪",
-            "日薪",
-            "报酬",
-            "收入",
-            "salary",
-            "wage",
-            "bonus",
-            "compensation",
-            "pay",
-        ),
-    ),
+    (EntityType.SALARY, _ALL_SALARY_KEYWORDS),
     (EntityType.LICENSE_PLATE, ("车牌", "车牌号", "车牌号码", "license_plate", "plate", "car_plate", "vehicle_plate")),
 )
 
@@ -241,6 +278,7 @@ def resolve_entity_from_label(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> EntityType | None:
     """从字段标签文本推断其对应值的实体类型（用于左右结构）。"""
     if is_pass_through_column(
@@ -248,6 +286,7 @@ def resolve_entity_from_label(
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
         anonymize_region=anonymize_region,
+        keep_salary_groups=keep_salary_groups,
     ):
         return None
     optional = detect_optional_column_entity_type(label)
@@ -261,6 +300,7 @@ def is_pass_through_column(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> bool:
     normalized = _normalize_column_name(column_name)
     if not normalized:
@@ -274,6 +314,11 @@ def is_pass_through_column(
     detected = detect_column_entity_type(column_name)
     if detected == EntityType.DEPARTMENT and not anonymize_department:
         return True
+    # 可选脱敏：SALARY 子组（默认全部脱敏，keep_salary_groups 指定放行的组）
+    if detected == EntityType.SALARY and keep_salary_groups:
+        group = resolve_salary_group(column_name)
+        if group is not None and group in keep_salary_groups:
+            return True
     return False
 
 
@@ -324,6 +369,31 @@ def detect_column_entity_type(column_name: str) -> EntityType | None:
                     return entity_type
                 else:
                     return entity_type
+    return None
+
+
+def resolve_salary_group(column_name: str) -> SalaryGroup | None:
+    """已判定为 EntityType.SALARY 的列，具体属于哪个薪资子组。
+
+    复用与 detect_column_entity_type 相同的短词锚定规则（≤2字关键词必须在
+    列名开头才算数），保证子组归属跟"这一列当初为什么被判定为 SALARY"
+    是同一套逻辑算出来的。不复用会有真实的误判风险：例如"绩效工资"里含
+    有"工资"这个 personal_comp 的关键词子串，但"工资"不在"绩效工资"开头，
+    按锚定规则不算数；真正命中的是 performance_pay 里"绩效工资"这个完整词。
+    """
+    normalized = _normalize_column_name(column_name)
+    for group, keywords in SALARY_GROUPS.items():
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            if keyword_lower not in normalized:
+                continue
+            if len(keyword) <= 2:
+                cleaned = re.sub(r"[\s\d_（）()\.,，。、/\\]", "", normalized)
+                if not cleaned.startswith(keyword_lower):
+                    continue
+                if len(cleaned) > len(keyword_lower) * 4:
+                    continue
+            return group
     return None
 
 

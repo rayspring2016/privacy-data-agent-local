@@ -228,6 +228,99 @@ def test_salary_column_non_salary_filtered():
         assert result != EntityType.SALARY, f"{col!r} should NOT be SALARY, got {result}"
 
 
+# ── SALARY 子分组（2026-08-08 人工裁定 T3） ──────────────────────────────
+
+def test_salary_group_membership_covers_every_keyword_exactly_once():
+    """每个 SALARY 关键词有且只有一个归属组，无遗漏无重复。"""
+    from privacy_data_agent.detectors import SALARY_GROUPS
+
+    seen: dict[str, str] = {}
+    for group, keywords in SALARY_GROUPS.items():
+        for keyword in keywords:
+            assert keyword not in seen, (
+                f"{keyword!r} 同时出现在 {seen.get(keyword)!r} 和 {group!r} 两个组"
+            )
+            seen[keyword] = group.value
+
+    original_keywords = {
+        "工资", "薪资", "薪酬", "底薪", "基本工资", "应发工资", "实发工资",
+        "税前工资", "税后工资", "奖金", "年终奖", "绩效工资", "绩效奖金",
+        "提成", "佣金", "补贴", "餐补", "交通补贴", "通讯补贴", "住房补贴",
+        "高温补贴", "岗位补贴", "其他补贴", "五险一金", "社保", "公积金",
+        "社保公积金", "人力成本", "年薪", "月薪", "日薪", "报酬", "收入",
+        "salary", "wage", "bonus", "compensation", "pay",
+    }
+    assert set(seen.keys()) == original_keywords
+
+
+def test_salary_group_resolution_matches_user_ruling():
+    """T3 人工裁定的三个关键归属：绩效工资→performance_pay，收入→labor_cost，
+    英文关键词按语义拆到对应中文组。"""
+    from privacy_data_agent.detectors import SalaryGroup, resolve_salary_group
+
+    assert resolve_salary_group("绩效工资") == SalaryGroup.PERFORMANCE_PAY
+    assert resolve_salary_group("收入") == SalaryGroup.LABOR_COST
+    assert resolve_salary_group("salary") == SalaryGroup.PERSONAL_COMP
+    assert resolve_salary_group("bonus") == SalaryGroup.PERFORMANCE_PAY
+
+
+def test_salary_group_resolution_does_not_confuse_compound_keyword():
+    """「工资」是 personal_comp 的关键词，也是「绩效工资」的子串。
+    子组归属必须跟 detect_column_entity_type 判定 SALARY 时用的是同一条
+    锚定规则，否则「绩效工资」会被"工资"截胡误判进 personal_comp。"""
+    from privacy_data_agent.detectors import SalaryGroup, resolve_salary_group
+
+    assert resolve_salary_group("绩效奖金") == SalaryGroup.PERFORMANCE_PAY
+    assert resolve_salary_group("基本工资") == SalaryGroup.PERSONAL_COMP
+    assert resolve_salary_group("应发工资") == SalaryGroup.PERSONAL_COMP
+
+
+def test_salary_group_resolution_returns_none_for_non_salary_column():
+    from privacy_data_agent.detectors import resolve_salary_group
+
+    assert resolve_salary_group("客户名称") is None
+    assert resolve_salary_group("绩效评分") is None  # 考核结果，不是薪酬
+
+
+def test_is_pass_through_column_default_keeps_all_salary_groups_anonymized():
+    """不传 keep_salary_groups（默认值）时，所有薪资列都照常脱敏——
+    这是 golden 基线钉住的默认安全行为。"""
+    assert is_pass_through_column("人力成本") is False
+    assert is_pass_through_column("月薪") is False
+    assert is_pass_through_column("社保公积金") is False
+
+
+def test_is_pass_through_column_keep_salary_groups_only_affects_named_group():
+    """--keep-salary-group labor_cost 只放开人力成本/收入，
+    个人薪酬、绩效、社保等其余组必须继续脱敏。"""
+    from privacy_data_agent.detectors import SalaryGroup
+
+    kept = frozenset({SalaryGroup.LABOR_COST})
+    assert is_pass_through_column("人力成本", keep_salary_groups=kept) is True
+    assert is_pass_through_column("收入", keep_salary_groups=kept) is True
+    assert is_pass_through_column("月薪", keep_salary_groups=kept) is False
+    assert is_pass_through_column("绩效奖金", keep_salary_groups=kept) is False
+    assert is_pass_through_column("社保公积金", keep_salary_groups=kept) is False
+
+
+def test_is_pass_through_column_keep_multiple_salary_groups():
+    from privacy_data_agent.detectors import SalaryGroup
+
+    kept = frozenset({SalaryGroup.LABOR_COST, SalaryGroup.ALLOWANCE})
+    assert is_pass_through_column("人力成本", keep_salary_groups=kept) is True
+    assert is_pass_through_column("餐补", keep_salary_groups=kept) is True
+    assert is_pass_through_column("月薪", keep_salary_groups=kept) is False
+
+
+def test_resolve_entity_from_label_threads_keep_salary_groups():
+    """标签-值布局（左右结构）也要遵守子组开关，不能只在标准列布局生效。"""
+    from privacy_data_agent.detectors import SalaryGroup
+
+    kept = frozenset({SalaryGroup.LABOR_COST})
+    assert resolve_entity_from_label("人力成本", keep_salary_groups=kept) is None
+    assert resolve_entity_from_label("月薪", keep_salary_groups=kept) == EntityType.SALARY
+
+
 def test_pure_digit_employee_id_requires_column_context():
     """Pure-digit IDs (e.g. 001234) must be in an EMPLOYEE_ID column to be detected."""
     from privacy_data_agent.detectors import detect_cell_entity_type
