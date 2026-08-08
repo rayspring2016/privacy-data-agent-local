@@ -84,6 +84,14 @@ def anonymize_file(
                 "anonymized_data_path": str(artifacts.anonymized_data_path),
                 "mapping_json_path": str(artifacts.mapping_json_path),
                 "mapping_table_path": str(artifacts.mapping_table_path),
+                # 主动降低脱敏强度的动作最该留痕：半年后拿到这份 anonymized
+                # 文件，得能查出当初到底放开了哪些。region 不记，因为它从未
+                # 真正生效（详见 detectors.py 里的相关说明）。
+                "flags": {
+                    "anonymize_job_title": anonymize_job_title,
+                    "anonymize_department": anonymize_department,
+                    "kept_salary_groups": sorted(g.value for g in keep_salary_groups),
+                },
             },
             ensure_ascii=False,
             indent=2,

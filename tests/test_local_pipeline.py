@@ -1,3 +1,6 @@
+import json
+
+from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.local_pipeline import anonymize_file, restore_report_file
 from privacy_data_agent.mapping_store import load_local_mapping
 
@@ -42,6 +45,36 @@ def test_local_anonymize_and_restore_without_model_or_key(tmp_path, monkeypatch)
     assert "张三" in restored_text
     assert "上海春雷科技有限公司" in restored_text
     assert "华东销售一部" in restored_text
+
+
+def test_local_anonymize_records_flag_state_in_manifest(tmp_path):
+    """半年后拿到 anonymized 文件，得能从 manifest 查出当初放开了哪些组。"""
+    output_dir = tmp_path / "local"
+
+    artifacts = anonymize_file(
+        input_path="tests/fixtures/golden_sample.xlsx",
+        output_dir=output_dir,
+        keep_salary_groups=frozenset({SalaryGroup.LABOR_COST}),
+    )
+
+    manifest = json.loads(artifacts.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["flags"] == {
+        "anonymize_job_title": False,
+        "anonymize_department": True,
+        "kept_salary_groups": ["labor_cost"],
+    }
+
+
+def test_local_anonymize_manifest_default_flags_empty_kept_groups(tmp_path):
+    output_dir = tmp_path / "local"
+
+    artifacts = anonymize_file(
+        input_path="tests/fixtures/hr_sample.csv",
+        output_dir=output_dir,
+    )
+
+    manifest = json.loads(artifacts.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["flags"]["kept_salary_groups"] == []
 
 
 def test_local_restore_can_use_mapping_table_csv(tmp_path):
