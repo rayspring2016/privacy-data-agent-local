@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 
+from privacy_data_agent.aggregator import aggregate_file
 from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.llm_client import FakeModelProvider, OpenAIModelProvider
 from privacy_data_agent.local_pipeline import anonymize_file, restore_report_file
@@ -59,6 +60,50 @@ def anonymize(
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")
     typer.echo("Keep mapping files local. They contain original sensitive values.")
+
+
+@app.command()
+def aggregate(
+    input_path: Path = typer.Argument(..., exists=True, readable=True),
+    output_path: Path = typer.Option(Path("runs/local/aggregate.csv"), "--output", "-o"),
+    group_by: list[str] = typer.Option(
+        ...,
+        "--group-by",
+        help="按哪一列（或多列，组合分组）汇总，如 --group-by 部门 --group-by 岗位。"
+        "必须是源文件里真实存在的列名。",
+    ),
+    salary_group: list[SalaryGroup] = typer.Option(
+        ...,
+        "--salary-group",
+        help="汇总哪个薪资子组的数字（求和+均值+人数）。可重复传多个。",
+    ),
+    min_group_size: int = typer.Option(
+        3,
+        "--min-group-size",
+        help="k-匿名阈值：分组人数低于此值时，拒绝输出该分组的总额/均值"
+        "（只留人数，不留数字），默认3人。",
+    ),
+    header_row: int | None = typer.Option(None, "--header-row", "-hr"),
+) -> None:
+    """本地聚合成本/人效数字，不脱敏、不输出任何个人行——个人数据从不产出，
+    只产出分组汇总。跟 anonymize 是完全不同的安全模型，只吃 xlsx/csv。"""
+    try:
+        result = aggregate_file(
+            input_path=input_path,
+            output_path=output_path,
+            group_by=group_by,
+            salary_groups=salary_group,
+            min_group_size=min_group_size,
+            header_row=header_row,
+        )
+    except ValueError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Aggregated output: {output_path}")
+    if result.suppressed_group_count:
+        typer.echo(
+            f"{result.suppressed_group_count} 个分组因人数少于 {min_group_size} 人被拒绝输出汇总数（k-匿名保护）。"
+        )
 
 
 @app.command()

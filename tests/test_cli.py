@@ -231,6 +231,89 @@ def test_cli_xlsx_with_flags_is_unaffected_by_docx_guard(tmp_path, monkeypatch):
     assert (tmp_path / "anonymized.xlsx").exists()
 
 
+# ── aggregate: 本地聚合，不脱敏，不产出个人行 ───────────────────────────
+
+def test_cli_aggregate_writes_group_summary(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+    output_path = tmp_path / "out.csv"
+
+    result = runner.invoke(
+        app,
+        [
+            "aggregate",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output",
+            str(output_path),
+            "--group-by",
+            "部门",
+            "--salary-group",
+            "labor_cost",
+            "--min-group-size",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert output_path.exists()
+    import pandas as pd
+
+    df = pd.read_csv(output_path)
+    assert "姓名" not in df.columns
+    assert len(df) == 3  # 三个部门，不是三个人（golden_sample每部门恰好1人）
+
+
+def test_cli_aggregate_suppresses_small_groups_by_default(tmp_path, monkeypatch):
+    """golden_sample每个部门只有1人，默认min-group-size=3应全部拒绝输出数字。"""
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+    output_path = tmp_path / "out.csv"
+
+    result = runner.invoke(
+        app,
+        [
+            "aggregate",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output",
+            str(output_path),
+            "--group-by",
+            "部门",
+            "--salary-group",
+            "labor_cost",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "拒绝输出" in result.output
+    import pandas as pd
+
+    df = pd.read_csv(output_path)
+    assert (df["人力成本_总额"].astype(str).str.contains("样本不足")).all()
+
+
+def test_cli_aggregate_rejects_unknown_group_by_column(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "aggregate",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output",
+            str(tmp_path / "out.csv"),
+            "--group-by",
+            "不存在的列",
+            "--salary-group",
+            "labor_cost",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "不存在于源文件" in result.output
+    assert not (tmp_path / "out.csv").exists()
+
+
 def test_cli_anonymize_xlsx_outputs_preserved_workbook(tmp_path, monkeypatch):
     monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
     workbook = Workbook()
