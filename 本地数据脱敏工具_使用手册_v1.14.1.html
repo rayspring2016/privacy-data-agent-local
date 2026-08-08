@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本地数据脱敏工具 — 使用手册 v1.14.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #2B7FE8;
+    --accent2: #0ea5e9;
+    --purple: #7c3aed;
+    --success: #0e9f6e;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --text: #18181B;
+    --text-secondary: #52525B;
+    --text-muted: #A1A1AA;
+    --bg: #ffffff;
+    --bg-secondary: #f4f7fb;
+    --border: rgba(43,127,232,0.14);
+    --shadow: 0 2px 12px rgba(43,127,232,0.07);
+    --font: "Inter", "Noto Sans SC", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "Consolas", monospace;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  /* ── TOC Sidebar ── */
+  .toc-sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 220px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 2rem 0;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .toc-logo {
+    padding: 0 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .toc-logo-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+  .toc-logo-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+  }
+  .toc-item {
+    display: block;
+    padding: 0.4rem 1.25rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .toc-item:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-left-color: var(--accent);
+  }
+  .toc-item.parent {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.78rem;
+    margin-top: 0.5rem;
+  }
+  .toc-section {
+    padding: 0.5rem 1.25rem 0.25rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.75rem;
+  }
+
+  /* ── Main Content ── */
+  .main {
+    margin-left: 220px;
+    padding: 0;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    min-height: 360px;
+    display: flex;
+    align-items: center;
+    padding: 4rem 3.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: -100px; right: -100px; bottom: -100px;
+    background: radial-gradient(ellipse 600px 300px at 30% 50%, rgba(43,127,232,0.18) 0%, transparent 60%);
+  }
+  .cover-inner { position: relative; z-index: 1; max-width: 700px; }
+  .cover-kicker {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(43,127,232,0.9);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .cover-title {
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+  .cover-title span { color: #60a5fa; }
+  .cover-desc {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.65);
+    max-width: 520px;
+    line-height: 1.7;
+    margin-bottom: 2rem;
+  }
+  .cover-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .cover-badge {
+    background: rgba(43,127,232,0.2);
+    border: 1px solid rgba(43,127,232,0.35);
+    color: #93c5fd;
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    font-family: var(--mono);
+  }
+
+  /* ── Section ── */
+  .section {
+    padding: 3.5rem 3.5rem;
+    border-bottom: 1px solid var(--border);
+    max-width: 900px;
+  }
+  .section:last-child { border-bottom: none; }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+  .section-title .hl { color: var(--accent); }
+  .section-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    max-width: 600px;
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 1.75rem 0 0.75rem;
+  }
+  h3:first-child { margin-top: 0; }
+  p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+  }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .card-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+  /* ── Alert Boxes ── */
+  .alert {
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin: 1.25rem 0;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+  .alert-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
+  .alert-body { flex: 1; }
+  .alert-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .alert-text { font-size: 0.83rem; line-height: 1.6; }
+
+  .alert-info {
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .alert-info .alert-title { color: var(--accent); }
+  .alert-info .alert-text { color: var(--text-secondary); }
+
+  .alert-success {
+    background: color-mix(in srgb, var(--success) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success) 18%, transparent);
+  }
+  .alert-success .alert-title { color: var(--success); }
+  .alert-success .alert-text { color: var(--text-secondary); }
+
+  .alert-warning {
+    background: color-mix(in srgb, var(--warning) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
+  }
+  .alert-warning .alert-title { color: var(--warning); }
+  .alert-warning .alert-text { color: var(--text-secondary); }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+  }
+  .badge-blue { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+  .badge-green { background: color-mix(in srgb, var(--success) 10%, transparent); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 22%, transparent); }
+  .badge-orange { background: color-mix(in srgb, var(--warning) 10%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent); }
+  .badge-red { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent); }
+  .badge-gray { background: #f4f4f5; color: #71717a; border: 1px solid #e4e4e7; }
+  .badge-purple { background: color-mix(in srgb, var(--purple) 10%, transparent); color: var(--purple); border: 1px solid color-mix(in srgb, var(--purple) 22%, transparent); }
+
+  /* ── Step Flow ── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; }
+  .step {
+    display: flex;
+    gap: 1.25rem;
+    position: relative;
+  }
+  .step-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .step-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--mono);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .step-line {
+    flex: 1;
+    width: 2px;
+    background: var(--border);
+    margin: 4px 0;
+    min-height: 24px;
+  }
+  .step-content {
+    flex: 1;
+    padding-bottom: 2rem;
+  }
+  .step:last-child .step-content { padding-bottom: 0; }
+  .step:last-child .step-line { display: none; }
+  .step-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+    margin-top: 0.35rem;
+  }
+  .step-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  .step-tip {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.65rem;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* ── Entity Table ── */
+  .entity-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+  }
+  .entity-table th {
+    background: var(--bg-secondary);
+    padding: 0.65rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+  }
+  .entity-table td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    vertical-align: top;
+  }
+  .entity-table tr:last-child td { border-bottom: none; }
+  .entity-table tr:hover td { background: var(--bg-secondary); }
+  .entity-name {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.8rem;
+  }
+
+  /* ── UI Mock ── */
+  .ui-mock {
+    background: #0C0C0F;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 1.75rem;
+    margin: 1.25rem 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  }
+  .ui-mock-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ui-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .ui-title {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+    font-family: var(--mono);
+    margin-left: auto;
+  }
+  .ui-tab-bar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 0.5rem;
+  }
+  .ui-tab {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.35);
+    padding-bottom: 0.35rem;
+    cursor: default;
+  }
+  .ui-tab.active {
+    color: #F4F4F5;
+    border-bottom: 2px solid #D4887B;
+    font-weight: 600;
+  }
+  .ui-upload-zone {
+    border: 1.5px dashed rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 1.25rem;
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+  }
+  .ui-stage-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 0.25rem;
+  }
+  .ui-stage {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+  }
+  .ui-stage-dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    font-size: 0.65rem;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .ui-stage-dot.active { background: #D4887B; color: white; }
+  .ui-stage-dot.todo { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
+  .ui-stage-label { color: rgba(255,255,255,0.4); }
+  .ui-stage-label.active { color: #D4887B; font-weight: 600; }
+  .ui-stage-line { flex: 1; height: 1px; background: rgba(255,255,255,0.06); margin: 0 0.5rem; }
+
+  /* ── FAQ ── */
+  .faq-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .faq-q {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .faq-q-mark {
+    background: var(--accent);
+    color: white;
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+  }
+  .faq-a {
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    padding-left: 1.5rem;
+  }
+
+  /* ── Format chips ── */
+  .format-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0; }
+  .fmt-chip {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* ── Highlight box ── */
+  .highlight-box {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 5%, var(--bg)) 0%,
+      color-mix(in srgb, var(--accent) 3%, var(--bg)) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+  }
+
+  .new-badge {
+    background: color-mix(in srgb, var(--purple) 10%, transparent);
+    color: var(--purple);
+    border: 1px solid color-mix(in srgb, var(--purple) 22%, transparent);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+    margin-left: 0.35rem;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.75rem 0;
+  }
+
+  /* ── Doc list ── */
+  ul.doc-list {
+    list-style: none;
+    margin: 0.5rem 0;
+  }
+  ul.doc-list li {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    padding: 0.3rem 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  ul.doc-list li::before {
+    content: '·';
+    color: var(--accent);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 2rem 3.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .footer-left { font-family: var(--mono); }
+  .footer-right { font-family: var(--mono); }
+
+  @media (max-width: 900px) {
+    .toc-sidebar { display: none; }
+    .main { margin-left: 0; }
+    .section { padding: 2rem 1.5rem; }
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+    .cover { padding: 2.5rem 1.5rem; }
+    .cover-title { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── TOC Sidebar ── -->
+<nav class="toc-sidebar">
+  <div class="toc-logo">
+    <div class="toc-logo-title">使用手册</div>
+    <div class="toc-logo-sub">数据脱敏工具 v1.14.1</div>
+  </div>
+  <div class="toc-section">快速入门</div>
+  <a href="#intro" class="toc-item parent">工具介绍</a>
+  <a href="#safety" class="toc-item parent">安全说明</a>
+  <a href="#interface" class="toc-item parent">界面概览</a>
+  <div class="toc-section">核心功能</div>
+  <a href="#anonymize" class="toc-item parent">数据脱敏操作</a>
+  <a href="#step1" class="toc-item">第一步：上传文件</a>
+  <a href="#step2" class="toc-item">第二步：预览数据</a>
+  <a href="#step3" class="toc-item">第三步：配置选项</a>
+  <a href="#step4" class="toc-item">第四步：下载结果</a>
+  <a href="#restore" class="toc-item parent">报告反脱敏</a>
+  <div class="toc-section">参考信息</div>
+  <a href="#formats" class="toc-item parent">支持的文件格式</a>
+  <a href="#entities" class="toc-item parent">自动识别字段</a>
+  <a href="#advanced" class="toc-item parent">高级功能</a>
+  <a href="#faq" class="toc-item parent">常见问题</a>
+</nav>
+
+<!-- ── Main ── -->
+<div class="main">
+
+  <!-- Cover -->
+  <div class="cover">
+    <div class="cover-inner">
+      <div class="cover-kicker">// 使用手册 · 2026</div>
+      <h1 class="cover-title">本地数据<span>脱敏工具</span><br>使用手册</h1>
+      <p class="cover-desc">专为HR数据处理场景设计。帮助你在对外发送员工数据前，快速、安全地隐藏姓名、手机号、身份证号等隐私信息，全程本地处理，数据不离开你的电脑。</p>
+      <div class="cover-badges">
+        <span class="cover-badge">v1.14.1</span>
+        <span class="cover-badge">全程本地处理</span>
+        <span class="cover-badge">支持 Excel / Word / PDF</span>
+        <span class="cover-badge">可逆脱敏</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 01 工具介绍 ── -->
+  <div id="intro" class="section">
+    <div class="kicker">// 01 · 工具介绍</div>
+    <h2 class="section-title">这个工具是<span class="hl">干什么的</span>？</h2>
+    <p class="section-subtitle">三分钟了解工具的核心价值和使用场景。</p>
+
+    <div class="highlight-box">
+      <h3 style="margin-top:0">用一句话说清楚</h3>
+      <p>当你需要把员工名单、薪酬表、花名册等包含隐私信息的文件发给外部顾问、猎头、审计公司时，先用这个工具把敏感信息"替换"成无意义的代码，发出去的文件安全，还原时再还原回来。</p>
+    </div>
+
+    <h3>典型使用场景</h3>
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">📤 外发数据前脱敏</div>
+        <div class="card-desc">发给猎头、薪酬咨询顾问、外部审计时，先脱敏再发送，保护员工隐私。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 数据分析无风险</div>
+        <div class="card-desc">把脱敏数据发给数据团队做分析，分析结果出来后再还原，整个过程合规。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 报告还原真实数据</div>
+        <div class="card-desc">外部做完的分析报告（Word/PPT/HTML）可以反脱敏，变回有真实数据的版本。</div>
+      </div>
+    </div>
+
+    <h3>工作流程一览</h3>
+    <div class="alert alert-info">
+      <div class="alert-icon">💡</div>
+      <div class="alert-body">
+        <div class="alert-title">核心逻辑：脱敏 → 分析 → 反脱敏</div>
+        <div class="alert-text">
+          脱敏时工具会生成一个「匹配文件」，记录真实信息和代码的对应关系（比如"张三 ↔ EMP_001"）。<br>
+          反脱敏时上传这个匹配文件，就能把报告中的代码换回真实信息。<br>
+          <strong>匹配文件要自己保管好，丢了就无法还原。</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 02 安全说明 ── -->
+  <div id="safety" class="section">
+    <div class="kicker">// 02 · 安全说明</div>
+    <h2 class="section-title">你的数据<span class="hl">安全吗</span>？</h2>
+    <p class="section-subtitle">这是大家最关心的问题，答案是：完全安全。</p>
+
+    <div class="grid2">
+      <div class="card" style="border-color: color-mix(in srgb, var(--success) 25%, transparent);">
+        <div class="card-title" style="color:var(--success)">✅ 数据不上传到服务器</div>
+        <div class="card-desc">文件只在你的电脑本地处理。工具没有后端服务器，处理完文件就销毁，不会被任何人看到。</div>
+      </div>
+      <div class="card" style="border-color: color-mix(in srgb, var(--success) 25%, transparent);">
+        <div class="card-title" style="color:var(--success)">✅ 不调用任何 AI 大模型</div>
+        <div class="card-desc">所有识别和替换完全靠本地规则引擎完成，不连接 ChatGPT、Claude 等任何外部 AI 服务。</div>
+      </div>
+      <div class="card" style="border-color: color-mix(in srgb, var(--success) 25%, transparent);">
+        <div class="card-title" style="color:var(--success)">✅ 无需网络即可使用</div>
+        <div class="card-desc">断网状态下也能正常运行。只有首次加载字体时需要网络，核心功能完全离线。</div>
+      </div>
+      <div class="card" style="border-color: color-mix(in srgb, var(--success) 25%, transparent);">
+        <div class="card-title" style="color:var(--success)">✅ 匹配文件可加密保护</div>
+        <div class="card-desc">如果匹配文件也需要加密传输，可以生成密钥对其加密，对方解密时需要输入同一密钥。</div>
+      </div>
+    </div>
+
+    <div class="alert alert-warning">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-title">匹配文件请妥善保管</div>
+        <div class="alert-text">下载的 <code style="font-family:var(--mono);background:#f0f0f0;padding:0.1em 0.35em;border-radius:3px">mapping.local.json</code> 文件是还原数据的唯一钥匙。一旦丢失，脱敏数据将无法还原。建议存放在内部共享盘或有备份的位置，不要随脱敏文件一起发给外部。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 03 界面概览 ── -->
+  <div id="interface" class="section">
+    <div class="kicker">// 03 · 界面概览</div>
+    <h2 class="section-title">界面<span class="hl">长什么样</span>？</h2>
+    <p class="section-subtitle">打开工具后，你会看到以下界面布局。</p>
+
+    <div class="ui-mock">
+      <div class="ui-mock-header">
+        <div class="ui-dot" style="background:#FF5F57"></div>
+        <div class="ui-dot" style="background:#FFBD2E"></div>
+        <div class="ui-dot" style="background:#28C840"></div>
+        <div class="ui-title">本地数据脱敏工具 · v1.14.1</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;">
+        <div>
+          <div style="font-size:1.4rem;font-weight:700;color:#F4F4F5;">本地数据脱敏工具</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.35);margin-top:0.2rem;">文件只在本机处理，不会上传到服务器，也不会调用大模型。</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <span style="font-size:0.72rem;font-family:var(--mono);color:rgba(255,255,255,0.3)">v1.14.1</span>
+          <span style="font-size:0.9rem;cursor:default;">🌙</span>
+        </div>
+      </div>
+      <div class="ui-tab-bar">
+        <div class="ui-tab active">数据脱敏</div>
+        <div class="ui-tab">报告反脱敏</div>
+      </div>
+      <div class="ui-stage-bar">
+        <div class="ui-stage">
+          <div class="ui-stage-dot active">1</div>
+          <span class="ui-stage-label active" style="font-size:0.72rem;">上传文件</span>
+        </div>
+        <div class="ui-stage-line"></div>
+        <div class="ui-stage">
+          <div class="ui-stage-dot todo">2</div>
+          <span class="ui-stage-label" style="font-size:0.72rem;">处理中</span>
+        </div>
+        <div class="ui-stage-line"></div>
+        <div class="ui-stage">
+          <div class="ui-stage-dot todo">3</div>
+          <span class="ui-stage-label" style="font-size:0.72rem;">完成</span>
+        </div>
+        <div class="ui-stage-line"></div>
+        <div class="ui-stage">
+          <div class="ui-stage-dot todo">4</div>
+          <span class="ui-stage-label" style="font-size:0.72rem;">下载</span>
+        </div>
+      </div>
+      <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-bottom:0.4rem;font-weight:600;">第一步：选择需要脱敏的文件</div>
+      <div class="ui-upload-zone">
+        拖拽或点击上传文件（Excel、CSV、Numbers、WPS、DOCX、PDF）<br>
+        <span style="font-size:0.7rem;opacity:0.6;margin-top:0.3rem;display:block;">支持批量上传多个文件</span>
+      </div>
+    </div>
+
+    <h3>界面四个区域说明</h3>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">① 顶部标题区</div>
+        <div class="card-desc">显示工具名称和版本号。右上角可以切换深色/浅色主题（🌙 按钮）。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">② 功能标签页</div>
+        <div class="card-desc">两个标签页：<strong>数据脱敏</strong>（处理原始数据）和<strong>报告反脱敏</strong>（还原分析结果中的代码）。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">③ 进度指示条</div>
+        <div class="card-desc">四个阶段（上传 → 处理 → 完成 → 下载），当前所在阶段会高亮显示，知道进行到哪一步。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">④ 主操作区</div>
+        <div class="card-desc">按照「第一步、第二步、第三步」的引导完成操作，每个步骤都有说明，不会迷路。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 04 数据脱敏 ── -->
+  <div id="anonymize" class="section">
+    <div class="kicker">// 04 · 数据脱敏</div>
+    <h2 class="section-title"><span class="hl">数据脱敏</span>操作指南</h2>
+    <p class="section-subtitle">按照以下步骤，5分钟内完成数据脱敏。</p>
+
+    <div class="steps">
+
+      <!-- Step 1 -->
+      <div id="step1" class="step">
+        <div class="step-left">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">选择需要脱敏的文件</div>
+          <div class="step-desc">点击上传区域，或直接把文件拖进去。支持单文件，也支持一次选多个文件批量处理。<br><br><strong>支持的格式：</strong></div>
+          <div class="format-list">
+            <span class="fmt-chip">.xlsx（Excel）</span>
+            <span class="fmt-chip">.csv</span>
+            <span class="fmt-chip">.numbers（Mac）</span>
+            <span class="fmt-chip">.et（WPS）</span>
+            <span class="fmt-chip">.docx（Word）</span>
+            <span class="fmt-chip">.pdf</span>
+          </div>
+          <div class="step-tip">
+            <strong>批量处理技巧：</strong> 如果有多个月份的花名册，可以一次选多个文件一起上传，工具会把它们的脱敏结果汇总到同一个匹配文件里，方便统一管理。
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div id="step2" class="step">
+        <div class="step-left">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">预览数据概览（可选，推荐新手使用）</div>
+          <div class="step-desc">上传文件后，点击「📊 预览数据概览与实体分布」，可以看到工具识别出了哪些列、准备怎么处理，处理前可以提前检查。</div>
+          <div class="alert alert-info" style="margin-top:0.75rem;">
+            <div class="alert-icon">📊</div>
+            <div class="alert-body">
+              <div class="alert-title">预览表格中各列的含义</div>
+              <div class="alert-text">
+                <strong>列名</strong>：文件中的列标题<br>
+                <strong>实体类型</strong>：识别出的隐私类型（如"姓名"、"手机号"）<br>
+                <strong>处理方式</strong>：<span class="badge badge-red">脱敏</span> 整列替换为代码 / <span class="badge badge-orange">仅高置信扫描</span> 只替换格式确定的值 / <span class="badge badge-gray">保留</span> 不处理<br>
+                <strong>示例值</strong>：该列第一个非空值，帮你核对识别是否正确
+              </div>
+            </div>
+          </div>
+          <div class="step-tip">⚠️ Word (.docx) 和 PDF 格式目前不支持预览，可以直接处理。</div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div id="step3" class="step">
+        <div class="step-left">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">配置处理选项（可选）</div>
+          <div class="step-desc">大多数情况下保持默认即可。以下场景需要展开对应选项调整：</div>
+          <br>
+
+          <div class="card" style="margin-bottom:0.75rem">
+            <div class="card-title">📎 同一批次追加文件</div>
+            <div class="card-desc">
+              如果上个月已经脱敏过，这个月想沿用同一套代码（比如"张三"上次叫 EMP_001，这次还叫 EMP_001），可以把上次的 <code style="font-family:var(--mono);font-size:0.78rem">mapping.local.json</code> 上传进来作为"种子文件"。<br><br>
+              <span class="badge badge-blue">适用场景</span> 月度花名册更新、跨文件统一脱敏
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0.75rem">
+            <div class="card-title">🔐 加密匹配文件</div>
+            <div class="card-desc">
+              点击「生成加密密钥」，工具会生成一串随机密钥，用它加密匹配文件。反脱敏时需要输入同一密钥才能解锁。<br><br>
+              <span class="badge badge-orange">注意</span> 密钥只在当前会话保存，关闭页面后消失，一定要复制或截图保存，再通过安全渠道告知对方。
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0.75rem">
+            <div class="card-title">🎛️ 字段脱敏范围</div>
+            <div class="card-desc">
+              <strong>脱敏岗位名称 / 职位 / 职务</strong> <span class="new-badge">v1.14.0 新增</span><br>
+              默认<strong>不脱敏</strong>岗位，方便按岗位分析数据。如果要隐藏岗位信息，打开这个开关。<br><br>
+              <strong>脱敏部门名称</strong>：默认<strong>脱敏</strong>部门。如果需要保留部门名称做分析，关掉这个开关。
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title">📋 表格格式配置</div>
+            <div class="card-desc">
+              如果你的表格第一行不是列标题，而是大标题（比如「2025年度员工统计表」），需要在这里调整表头所在行。<br><br>
+              <ul class="doc-list" style="margin:0;">
+                <li><strong>自动检测（默认）</strong>：工具自动判断，通常准确</li>
+                <li><strong>第一行</strong>：列标题在第 1 行（最常见）</li>
+                <li><strong>第二行</strong>：列标题在第 2 行（第 1 行是大标题）</li>
+                <li><strong>自定义行号</strong>：手动输入表头所在行号</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div id="step4" class="step">
+        <div class="step-left">
+          <div class="step-num">4</div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">点击「开始处理」，然后下载结果</div>
+          <div class="step-desc">点击「开始处理」按钮后，工具会自动完成脱敏。处理完成后，你会看到下载区域。</div>
+          <br>
+          <div class="grid2">
+            <div class="card" style="border-color: color-mix(in srgb, var(--accent) 30%, transparent);">
+              <div class="card-title" style="color:var(--accent)">⬇️ 一键打包下载（推荐）</div>
+              <div class="card-desc">
+                下载一个 ZIP 包，里面包含：
+                <ul class="doc-list" style="margin-top:0.4rem">
+                  <li>脱敏后的数据文件</li>
+                  <li>匹配文件 (mapping.local.json)</li>
+                  <li>匹配表格 (mapping_table.csv)</li>
+                  <li>使用说明文档</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">📁 单独下载各文件</div>
+              <div class="card-desc">展开「单独下载各文件」，可以分别下载脱敏文件、匹配文件，按需取用。</div>
+            </div>
+          </div>
+          <div class="alert alert-warning" style="margin-top:1rem;">
+            <div class="alert-icon">📌</div>
+            <div class="alert-body">
+              <div class="alert-title">关于匹配文件的保管规则</div>
+              <div class="alert-text">
+                ① 发给外部顾问时：只发<strong>脱敏后的数据文件</strong>，不要附上匹配文件<br>
+                ② 自己留存时：把匹配文件放在内部共享盘，与脱敏文件分开保管<br>
+                ③ 反脱敏时：上传脱敏后的报告 + 匹配文件，还原真实数据
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end .steps -->
+  </div>
+
+  <!-- ── 05 报告反脱敏 ── -->
+  <div id="restore" class="section">
+    <div class="kicker">// 05 · 报告反脱敏</div>
+    <h2 class="section-title">如何<span class="hl">还原</span>脱敏数据？</h2>
+    <p class="section-subtitle">外部顾问做完分析报告后，用这个功能把报告中的代码换回真实信息。</p>
+
+    <div class="alert alert-success">
+      <div class="alert-icon">✅</div>
+      <div class="alert-body">
+        <div class="alert-title">反脱敏支持的报告格式</div>
+        <div class="alert-text">
+          <div class="format-list" style="margin-top:0.4rem">
+            <span class="fmt-chip">.xlsx（Excel）</span>
+            <span class="fmt-chip">.docx（Word）</span>
+            <span class="fmt-chip">.pptx（PPT）</span>
+            <span class="fmt-chip">.html</span>
+            <span class="fmt-chip">.md</span>
+            <span class="fmt-chip">.txt</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>反脱敏操作步骤</h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+        <div class="step-content">
+          <div class="step-title">切换到「报告反脱敏」标签页</div>
+          <div class="step-desc">点击工具顶部的「报告反脱敏」标签。</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+        <div class="step-content">
+          <div class="step-title">上传需要还原的报告文件</div>
+          <div class="step-desc">把外部顾问返回的分析报告（含脱敏代码的版本）上传进来。支持 Excel、Word、PPT、HTML、Markdown、TXT 格式。</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+        <div class="step-content">
+          <div class="step-title">上传匹配文件</div>
+          <div class="step-desc">上传之前脱敏时保存的 <code style="font-family:var(--mono);font-size:0.78rem">mapping.local.json</code> 或 <code style="font-family:var(--mono);font-size:0.78rem">mapping_table.csv</code>。<br><br>如果当时选择了加密，还需要在下方输入解密密钥。</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left"><div class="step-num">4</div></div>
+        <div class="step-content">
+          <div class="step-title">点击「开始恢复」，下载还原结果</div>
+          <div class="step-desc">处理完成后，下载还原后的文件。报告中所有代码会被替换为真实的姓名、手机号等信息。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 06 文件格式 ── -->
+  <div id="formats" class="section">
+    <div class="kicker">// 06 · 参考信息</div>
+    <h2 class="section-title">支持的<span class="hl">文件格式</span></h2>
+    <p class="section-subtitle">脱敏和反脱敏支持的格式略有不同，请对照查阅。</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title" style="color:var(--accent)">数据脱敏 — 支持上传</div>
+        <table class="entity-table" style="margin-top:0.75rem">
+          <thead><tr><th>格式</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><span class="entity-name">.xlsx</span></td><td>Excel 表格（最常用）</td></tr>
+            <tr><td><span class="entity-name">.csv</span></td><td>逗号分隔文本</td></tr>
+            <tr><td><span class="entity-name">.numbers</span></td><td>Mac 自带表格软件</td></tr>
+            <tr><td><span class="entity-name">.et</span></td><td>WPS 表格</td></tr>
+            <tr><td><span class="entity-name">.docx</span></td><td>Word 文档</td></tr>
+            <tr><td><span class="entity-name">.pdf</span></td><td>PDF 文档</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--success)">报告反脱敏 — 支持上传</div>
+        <table class="entity-table" style="margin-top:0.75rem">
+          <thead><tr><th>格式</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><span class="entity-name">.xlsx</span></td><td>Excel 表格</td></tr>
+            <tr><td><span class="entity-name">.docx</span></td><td>Word 文档</td></tr>
+            <tr><td><span class="entity-name">.pptx</span></td><td>PowerPoint 演示</td></tr>
+            <tr><td><span class="entity-name">.html / .htm</span></td><td>网页报告</td></tr>
+            <tr><td><span class="entity-name">.md</span></td><td>Markdown 文档</td></tr>
+            <tr><td><span class="entity-name">.txt</span></td><td>纯文本文件</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="alert alert-info" style="margin-top:0.5rem;">
+      <div class="alert-icon">📌</div>
+      <div class="alert-body">
+        <div class="alert-title">关于 PDF 和 DOCX 的说明</div>
+        <div class="alert-text">PDF 和 Word 文档可以脱敏，但处理前不支持预览功能。建议先处理 Excel/CSV，确认效果后再处理文档类文件。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 07 自动识别字段 ── -->
+  <div id="entities" class="section">
+    <div class="kicker">// 07 · 自动识别字段</div>
+    <h2 class="section-title">工具能自动识别<span class="hl">哪些信息</span>？</h2>
+    <p class="section-subtitle">只要你的列名包含以下关键字，工具就会自动识别并脱敏对应列。</p>
+
+    <table class="entity-table">
+      <thead>
+        <tr>
+          <th>隐私类型</th>
+          <th>触发关键词（列名含以下词即自动识别）</th>
+          <th>处理方式</th>
+          <th>默认状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="entity-name">姓名</span></td>
+          <td>姓名、员工姓名、name、employee_name 等</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">身份证号</span></td>
+          <td>身份证、证件、id_number、national_id</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">工号</span></td>
+          <td>工号、员工编号、employee_id、emp_id</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">手机号</span></td>
+          <td>手机号、电话、phone、mobile</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">邮箱</span></td>
+          <td>邮箱、email、e-mail</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">薪资</span></td>
+          <td>薪资、工资、月薪、base_salary、salary</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">部门名称</span></td>
+          <td>部门、department、dept</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">客户名称</span></td>
+          <td>客户、客户名、company、customer</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td><span class="entity-name">车牌号</span></td>
+          <td>车牌、车牌号、license_plate、plate</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-green">默认开启</span></td>
+        </tr>
+        <tr>
+          <td>
+            <span class="entity-name">岗位名称</span>
+            <span class="new-badge">v1.14.0 新增</span>
+          </td>
+          <td>岗位、职位、职务、job_title、position</td>
+          <td><span class="badge badge-red">整列脱敏</span></td>
+          <td><span class="badge badge-gray">默认关闭</span>（需手动开启）</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>不会被脱敏的列（默认保留）</h3>
+    <p>以下业务性字段不会被自动脱敏，保留原值供分析使用：</p>
+    <div class="format-list">
+      <span class="fmt-chip">离职原因</span>
+      <span class="fmt-chip">离职类型</span>
+      <span class="fmt-chip">在职状态</span>
+      <span class="fmt-chip">性别</span>
+      <span class="fmt-chip">学历</span>
+      <span class="fmt-chip">合同类型</span>
+    </div>
+
+    <div class="alert alert-info" style="margin-top:1rem;">
+      <div class="alert-icon">🔍</div>
+      <div class="alert-body">
+        <div class="alert-title">单元格内容自动扫描</div>
+        <div class="alert-text">除了列名匹配，工具还会对单元格内容做高置信度扫描：格式符合手机号（11位数字 1开头）、身份证号（18位）、邮箱（含@）等规则的值，即便列名没有被识别出来，也会被替换。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 08 高级功能 ── -->
+  <div id="advanced" class="section">
+    <div class="kicker">// 08 · 高级功能</div>
+    <h2 class="section-title">进阶<span class="hl">使用技巧</span></h2>
+    <p class="section-subtitle">熟悉基本操作后，这些功能帮你处理更复杂的场景。</p>
+
+    <h3>批量处理多个文件</h3>
+    <p>同时选择多个文件上传，工具会逐个处理，并把所有文件的脱敏结果汇总到同一个匹配文件。处理完成后，点击「⬇️ 下载全部（打包ZIP）」一次下载所有结果。</p>
+
+    <div class="alert alert-success">
+      <div class="alert-icon">✅</div>
+      <div class="alert-body">
+        <div class="alert-title">批量处理的优势</div>
+        <div class="alert-text">多文件共享一个匹配文件，同一个人在所有文件中会得到一致的代码。例如"张三"在花名册里叫 EMP_001，在考勤表里也叫 EMP_001，方便外部顾问跨表关联分析。</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <h3>跨批次保持一致性</h3>
+    <p>处理本月数据时，把上个月的 <code style="font-family:var(--mono);font-size:0.82rem">mapping.local.json</code> 作为"种子文件"上传，新文件中出现相同的人/部门会沿用上次的代码，不会生成新的代号，方便长期追踪。</p>
+
+    <hr class="divider">
+
+    <h3>匹配文件加密传输</h3>
+    <p>如果你需要把匹配文件通过邮件或内网发给同事，可以生成密钥对其加密，对方用相同密钥才能反脱敏。这样即使文件被截获，也无法还原数据。</p>
+
+    <div class="grid2" style="margin-top:1rem;">
+      <div class="card">
+        <div class="card-title">发件方操作</div>
+        <div class="card-desc">
+          <ol style="padding-left:1.2rem;font-size:0.84rem;color:var(--text-secondary);line-height:1.8">
+            <li>展开「🔐 加密匹配文件」选项</li>
+            <li>点击「生成加密密钥」</li>
+            <li>复制密钥，通过安全渠道（当面/电话/企业微信）告知收件方</li>
+            <li>脱敏处理，下载加密后的匹配文件</li>
+            <li>把脱敏文件和加密匹配文件分开发送</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">收件方操作（还原报告时）</div>
+        <div class="card-desc">
+          <ol style="padding-left:1.2rem;font-size:0.84rem;color:var(--text-secondary);line-height:1.8">
+            <li>切换到「报告反脱敏」标签</li>
+            <li>上传分析报告</li>
+            <li>上传加密的匹配文件</li>
+            <li>在「解密密钥」输入框输入收到的密钥</li>
+            <li>点击「开始恢复」</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <h3>深色/浅色主题切换</h3>
+    <p>点击页面右上角的 🌙 按钮，可以在深色（护眼）和浅色主题之间切换，根据使用环境自由切换。</p>
+  </div>
+
+  <!-- ── 09 FAQ ── -->
+  <div id="faq" class="section">
+    <div class="kicker">// 09 · 常见问题</div>
+    <h2 class="section-title">常见<span class="hl">问题解答</span></h2>
+    <p class="section-subtitle">遇到问题先看这里，大部分疑惑都有解答。</p>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>工具识别出的列不对，多了或者少了怎么办？</div>
+      <div class="faq-a">先在「预览数据概览」里看一下识别结果。可以通过「字段脱敏范围」里的开关控制部门、岗位等字段是否脱敏。如需精细控制某一列，建议先把不需要脱敏的列从文件里删掉，处理完再补回来。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>表格第一行是大标题（如"2025年员工信息表"），处理结果乱了怎么办？</div>
+      <div class="faq-a">展开「表格格式配置」，把表头设置为「第二行」。工具就会从第二行开始读取列名，第一行的大标题会被原样保留。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>脱敏后发现同一个人对应了不同的代码，怎么回事？</div>
+      <div class="faq-a">通常是因为名字写法不一致（比如一处"张三"，一处"张 三"多了空格，或者全角半角不同）。工具是精确匹配，任何差异都会生成不同代码。建议脱敏前统一清理数据格式，删除多余空格。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>匹配文件丢了，还能还原数据吗？</div>
+      <div class="faq-a">不行。匹配文件是还原数据的唯一依据，没有匹配文件，脱敏后的代码无法还原。请务必把匹配文件备份到安全的地方（如内网共享盘）。如果文件已丢失，只能重新对原始数据进行脱敏，生成新的匹配文件。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>加密密钥忘记保存了怎么办？</div>
+      <div class="faq-a">密钥关闭页面后不会保存，一旦丢失就无法解密匹配文件。遇到这种情况，唯一的办法是重新对原始数据做一次脱敏（不加密），生成新的未加密匹配文件，然后重新做反脱敏。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>可以批量处理整个文件夹里的所有表格吗？</div>
+      <div class="faq-a">支持批量，但需要手动选择文件，不能直接选文件夹。上传时用 Ctrl/Command + 点击多选，或把要处理的文件都拖入上传区域，就会自动批量处理，所有文件的匹配结果会汇总在一起。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>岗位名称为什么默认不脱敏？</div>
+      <div class="faq-a">因为岗位是分析时常用的分组维度，保留岗位让外部顾问可以按岗位做薪酬对标、结构分析。如果不需要外部看到岗位信息，在「字段脱敏范围」里手动开启「脱敏岗位名称 / 职位 / 职务」即可（v1.14.0 新增功能）。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>处理大文件（几万行）需要多久？</div>
+      <div class="faq-a">处理速度取决于电脑性能。通常几千行的 Excel 在几秒内完成，几万行在一分钟内完成。如果页面长时间没有响应，刷新重试即可，不会有数据丢失风险。</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span class="faq-q-mark">Q</span>为什么要两个匹配文件（mapping.local.json 和 mapping_table.csv）？</div>
+      <div class="faq-a">两个文件内容相同，格式不同。<code style="font-family:var(--mono);font-size:0.78rem">mapping.local.json</code> 是工具反脱敏时使用的标准格式，支持加密；<code style="font-family:var(--mono);font-size:0.78rem">mapping_table.csv</code> 是 Excel 可以直接打开查看的格式，方便人工核查对应关系。反脱敏时用 JSON 文件，平时查阅用 CSV 文件。</div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">// 本地数据脱敏工具 · 使用手册 · v1.14.1</div>
+    <div class="footer-right">内部使用文档 · 请勿外传 · 2026-06-10</div>
+  </div>
+
+</div><!-- end .main -->
+</body>
+</html>

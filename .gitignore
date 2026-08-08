@@ -11,3 +11,4 @@ runs/
 build/
 release/*.egg-info/
 release/*.zip
+release/privacy-data-agent-local/src/
