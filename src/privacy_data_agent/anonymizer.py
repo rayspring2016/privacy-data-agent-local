@@ -6,6 +6,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
 from privacy_data_agent.detectors import (
+    SalaryGroup,
     detect_column_entity_type,
     detect_high_confidence_cell_entity_type,
     detect_optional_column_entity_type,
@@ -51,6 +52,7 @@ def anonymize_dataframe(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> AnonymizeResult:
     state = AnonymizerState(seed_mapping=seed_mapping)
     output = df.copy().astype("object")
@@ -61,6 +63,7 @@ def anonymize_dataframe(
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
             anonymize_region=anonymize_region,
+            keep_salary_groups=keep_salary_groups,
         ):
             continue
         column_type = detect_column_entity_type(column_name)

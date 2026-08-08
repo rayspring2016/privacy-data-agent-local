@@ -7,6 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from privacy_data_agent.anonymizer import anonymize_dataframe
+from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_table, save_plain_mapping_file
 from privacy_data_agent.pipeline import read_input_table
 from privacy_data_agent.restorer import restore_report
@@ -33,6 +34,7 @@ def anonymize_file(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> LocalAnonymizeArtifacts:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -56,11 +58,18 @@ def anonymize_file(
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
             anonymize_region=anonymize_region,
+            keep_salary_groups=keep_salary_groups,
         )
         mapping = anonymized_workbook.mapping
     else:
         source_df = read_input_table(input_file, header_row=header_row)
-        anonymized = anonymize_dataframe(source_df, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
+        anonymized = anonymize_dataframe(
+            source_df,
+            anonymize_job_title=anonymize_job_title,
+            anonymize_department=anonymize_department,
+            anonymize_region=anonymize_region,
+            keep_salary_groups=keep_salary_groups,
+        )
         anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
         mapping = anonymized.mapping
     save_plain_mapping_file(mapping, artifacts.mapping_json_path)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 
+from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.llm_client import FakeModelProvider, OpenAIModelProvider
 from privacy_data_agent.local_pipeline import anonymize_file, restore_report_file
 from privacy_data_agent.pipeline import run_analysis
@@ -24,6 +25,13 @@ def anonymize(
     header_row: int | None = typer.Option(None, "--header-row", "-hr", help="1-based header row number (default: auto-detect)"),
     anonymize_job_title: bool = typer.Option(False, "--anonymize-job-title", help="Also anonymize job title columns such as 岗位名称 / 职位 / 职务."),
     anonymize_department: bool = typer.Option(True, "--anonymize-department/--no-anonymize-department", help="Anonymize department names (default: enabled)."),
+    keep_salary_group: list[SalaryGroup] = typer.Option(
+        [],
+        "--keep-salary-group",
+        help="Keep this salary sub-group as plaintext instead of anonymizing it. "
+        "Repeatable, e.g. --keep-salary-group labor_cost --keep-salary-group allowance. "
+        "Default: none kept, all salary columns anonymized.",
+    ),
 ) -> None:
     artifacts = anonymize_file(
         input_path=input_path,
@@ -31,6 +39,7 @@ def anonymize(
         header_row=header_row,
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
+        keep_salary_groups=frozenset(keep_salary_group),
     )
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")

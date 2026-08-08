@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from privacy_data_agent.anonymizer import AnonymizerState
 from privacy_data_agent.detectors import (
+    SalaryGroup,
     detect_column_entity_type,
     detect_high_confidence_cell_entity_type,
     detect_header_row,
@@ -67,6 +68,7 @@ def anonymize_xlsx_bytes(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> WorkbookAnonymizeResult:
     workbook = load_workbook(BytesIO(content))
     state = AnonymizerState(seed_mapping=seed_mapping)
@@ -97,6 +99,7 @@ def anonymize_xlsx_bytes(
                     anonymize_job_title=anonymize_job_title,
                     anonymize_department=anonymize_department,
                     anonymize_region=anonymize_region,
+                    keep_salary_groups=keep_salary_groups,
                 )
                 if entity_type is None:
                     continue
@@ -133,6 +136,7 @@ def anonymize_xlsx_bytes(
                         anonymize_job_title=anonymize_job_title,
                         anonymize_department=anonymize_department,
                         anonymize_region=anonymize_region,
+                        keep_salary_groups=keep_salary_groups,
                     ):
                         continue
                     column_type = detect_column_entity_type(column_name)
@@ -189,6 +193,7 @@ def anonymize_xlsx_file(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> WorkbookAnonymizeResult:
     content = Path(input_path).read_bytes()
     result = anonymize_xlsx_bytes(
@@ -198,6 +203,7 @@ def anonymize_xlsx_file(
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
         anonymize_region=anonymize_region,
+        keep_salary_groups=keep_salary_groups,
     )
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(result.workbook_bytes)

@@ -66,6 +66,77 @@ def test_cli_anonymize_and_restore_are_local_only(tmp_path, monkeypatch):
     assert "张三" in restored_path.read_text(encoding="utf-8")
 
 
+def test_cli_keep_salary_group_preserves_only_named_group(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "anonymize",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output-dir",
+            str(tmp_path),
+            "--keep-salary-group",
+            "labor_cost",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import pandas as pd
+
+    output = pd.read_excel(tmp_path / "anonymized.xlsx")
+    assert output["人力成本"].astype(str).tolist() == ["31000", "22500", "27500"]
+    assert not output["月薪"].astype(str).str.startswith("2").any()  # anonymized, not "25000" etc
+
+
+def test_cli_keep_salary_group_accepts_repeated_flag(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "anonymize",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output-dir",
+            str(tmp_path),
+            "--keep-salary-group",
+            "labor_cost",
+            "--keep-salary-group",
+            "allowance",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import pandas as pd
+
+    output = pd.read_excel(tmp_path / "anonymized.xlsx")
+    assert output["人力成本"].astype(str).tolist() == ["31000", "22500", "27500"]
+    assert output["餐补"].astype(str).tolist() == ["500", "500", "500"]
+
+
+def test_cli_keep_salary_group_rejects_unknown_group(tmp_path, monkeypatch):
+    """拼错组名必须报错退出，不能静默无效（Eng Review 发现2/3）。"""
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "anonymize",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output-dir",
+            str(tmp_path),
+            "--keep-salary-group",
+            "labor_cast",  # typo
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not (tmp_path / "anonymized.xlsx").exists()
+
+
 def test_cli_anonymize_xlsx_outputs_preserved_workbook(tmp_path, monkeypatch):
     monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
     workbook = Workbook()
