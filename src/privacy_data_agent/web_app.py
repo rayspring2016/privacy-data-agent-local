@@ -4,7 +4,18 @@ from pathlib import Path
 
 import streamlit as st
 
-from privacy_data_agent.web_helpers import anonymize_upload, restore_report_upload
+from privacy_data_agent.aggregator import aggregate_dataframe
+from privacy_data_agent.detectors import SalaryGroup
+from privacy_data_agent.web_helpers import anonymize_upload, read_uploaded_table, restore_report_upload
+
+SALARY_GROUP_LABELS: dict[SalaryGroup, str] = {
+    SalaryGroup.PERSONAL_COMP: "个人薪酬（工资/年薪/月薪）",
+    SalaryGroup.SOCIAL_INSURANCE: "社保公积金",
+    SalaryGroup.LABOR_COST: "人力成本/收入",
+    SalaryGroup.ALLOWANCE: "各类补贴",
+    SalaryGroup.COMMISSION: "提成/佣金",
+    SalaryGroup.PERFORMANCE_PAY: "绩效工资/奖金",
+}
 
 VERSION = "1.14.1"
 
@@ -606,10 +617,13 @@ def main() -> None:
         st.markdown("<div style='padding-top:1.4rem'></div>", unsafe_allow_html=True)
         st.toggle("🌙", key="dark_mode")
 
-    anonymize_tab, restore_tab = st.tabs(["数据脱敏", "报告反脱敏"])
+    anonymize_tab, aggregate_tab, restore_tab = st.tabs(["数据脱敏", "成本聚合", "报告反脱敏"])
 
     with anonymize_tab:
         render_anonymize()
+
+    with aggregate_tab:
+        render_aggregate()
 
     with restore_tab:
         render_restore()
@@ -647,7 +661,7 @@ def render_anonymize() -> None:
         ("custom_header_row", 1),
         ("anonymize_job_title", False),
         ("anonymize_department", True),
-        ("anonymize_region", True),
+        ("keep_salary_group", []),  # v1.15.0: 默认不放开任何薪资组，全部脱敏
         ("processing", False),
         ("anonymize_result", None),
         ("anonymize_batch_result", None),  # v1.11.0: batch results
@@ -698,7 +712,7 @@ def render_anonymize() -> None:
                         encryption_key=st.session_state.encryption_key,
                         anonymize_job_title=st.session_state.anonymize_job_title,
                         anonymize_department=st.session_state.anonymize_department,
-                        anonymize_region=st.session_state.anonymize_region,
+                        keep_salary_groups=frozenset(st.session_state.keep_salary_group),
                     )
                     st.session_state.anonymize_batch_result = batch_result
                     st.session_state.processing = False
@@ -714,7 +728,7 @@ def render_anonymize() -> None:
                         encryption_key=st.session_state.encryption_key,
                         anonymize_job_title=st.session_state.anonymize_job_title,
                         anonymize_department=st.session_state.anonymize_department,
-                        anonymize_region=st.session_state.anonymize_region,
+                        keep_salary_groups=frozenset(st.session_state.keep_salary_group),
                     )
                     st.session_state.anonymize_result = result
                     st.session_state.processing = False
@@ -787,7 +801,7 @@ def render_anonymize() -> None:
                         "custom_header_row": 1,
                         "anonymize_job_title": False,
                         "anonymize_department": True,
-                        "anonymize_region": True,
+                        "keep_salary_group": [],
                         "anonymize_batch_result": None,
                         "anonymize_result": None,
                     }),
@@ -1083,6 +1097,21 @@ def render_anonymize() -> None:
             )
             st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
 
+            st.markdown("**放开哪些薪资子组（默认全部脱敏）**")
+            st.caption(
+                "只勾选你确实要发给 AI/外部看的组。比如只想让 AI 看到「人力成本」做人效分析，"
+                "个人薪酬、绩效奖金这些不勾——保持脱敏。"
+            )
+            selected_labels = st.multiselect(
+                "放开的薪资组",
+                options=list(SALARY_GROUP_LABELS.values()),
+                default=[SALARY_GROUP_LABELS[g] for g in st.session_state.keep_salary_group],
+                key="keep_salary_group_select",
+                label_visibility="collapsed",
+            )
+            label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
+            st.session_state.keep_salary_group = [label_to_group[label] for label in selected_labels]
+
         table_suffixes = {Path(f.name).suffix.lower() for f in st.session_state.anonymize_files}
         has_table_file = bool(table_suffixes & {".xlsx", ".csv", ".numbers", ".et"})
         if has_table_file:
@@ -1135,7 +1164,7 @@ def render_anonymize() -> None:
                 "custom_header_row": 1,
                 "anonymize_job_title": False,
                 "anonymize_department": True,
-                "anonymize_region": True,
+                "keep_salary_group": [],
                 "anonymize_result": None,
                 "anonymize_batch_result": None,
             })
@@ -1155,6 +1184,116 @@ _RESTORE_MIME = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
+
+
+def render_aggregate() -> None:
+    """本地聚合成本/人效数字——跟脱敏是完全不同的安全模型：不产出任何个人行，
+    只产出分组汇总，所以不需要脱敏这一步，输出可以直接给 AI 分析。"""
+    for key, default in [
+        ("aggregate_file", None),
+        ("aggregate_group_by", []),
+        ("aggregate_salary_group", []),
+        ("aggregate_min_group_size", 3),
+        ("aggregate_result_df", None),
+        ("aggregate_error", None),
+    ]:
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+    st.markdown(
+        "上传原始（未脱敏）表格，本地按维度聚合薪资数字。**输出里没有任何一行个人数据**，"
+        "只有分组标签 + 求和/均值/人数，所以这一步产出的结果可以直接发给 AI 做分析。"
+    )
+    st.caption(
+        "跟「数据脱敏」页是两回事：脱敏是把个人数据换成代号（还在按行），"
+        "这里是把个人数据聚合消失（不再有行）。"
+    )
+
+    uploaded = st.file_uploader(
+        "上传源文件（xlsx/csv）",
+        type=["xlsx", "csv"],
+        accept_multiple_files=False,
+        key="aggregate_file_uploader",
+    )
+    if uploaded is not None:
+        st.session_state.aggregate_file = uploaded
+
+    if st.session_state.aggregate_file is None:
+        return
+
+    try:
+        df = read_uploaded_table(st.session_state.aggregate_file.name, st.session_state.aggregate_file.getvalue())
+    except Exception as exc:
+        st.error(f"读取文件失败：{exc}")
+        return
+
+    columns = list(df.columns.astype(str))
+
+    st.multiselect(
+        "按哪些列分组（可多选，组合分组，如「部门+岗位」）",
+        options=columns,
+        key="aggregate_group_by",
+    )
+
+    selected_salary_labels = st.multiselect(
+        "汇总哪些薪资组的数字",
+        options=list(SALARY_GROUP_LABELS.values()),
+        default=[SALARY_GROUP_LABELS[g] for g in st.session_state.aggregate_salary_group],
+        key="aggregate_salary_group_select",
+    )
+    label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
+    st.session_state.aggregate_salary_group = [label_to_group[label] for label in selected_salary_labels]
+
+    st.number_input(
+        "k-匿名阈值：分组人数低于此值时拒绝输出该分组的总额/均值",
+        min_value=1,
+        step=1,
+        key="aggregate_min_group_size",
+        help="分组人数太少时，总额约等于个人工资——低于此阈值只显示人数，不显示金额。",
+    )
+
+    if st.button("开始聚合", type="primary", key="start_aggregate_btn"):
+        st.session_state.aggregate_error = None
+        st.session_state.aggregate_result_df = None
+        if not st.session_state.aggregate_group_by:
+            st.session_state.aggregate_error = "请至少选择一个分组列。"
+        elif not st.session_state.aggregate_salary_group:
+            st.session_state.aggregate_error = "请至少选择一个薪资组。"
+        else:
+            try:
+                result = aggregate_dataframe(
+                    df,
+                    group_by=st.session_state.aggregate_group_by,
+                    salary_groups=st.session_state.aggregate_salary_group,
+                    min_group_size=st.session_state.aggregate_min_group_size,
+                )
+                st.session_state.aggregate_result_df = result.dataframe
+                if result.suppressed_group_count:
+                    st.session_state.aggregate_suppressed = result.suppressed_group_count
+                else:
+                    st.session_state.aggregate_suppressed = 0
+            except ValueError as exc:
+                st.session_state.aggregate_error = str(exc)
+
+    if st.session_state.aggregate_error:
+        st.error(st.session_state.aggregate_error)
+
+    if st.session_state.aggregate_result_df is not None:
+        st.divider()
+        if st.session_state.get("aggregate_suppressed"):
+            st.warning(
+                f"{st.session_state.aggregate_suppressed} 个分组因人数不足被拒绝输出金额（k-匿名保护），"
+                "只显示人数。"
+            )
+        st.success("聚合完成，以下结果不含任何个人数据，可以直接用于 AI 分析。")
+        st.dataframe(st.session_state.aggregate_result_df, use_container_width=True)
+        st.download_button(
+            "下载聚合结果 CSV",
+            data=st.session_state.aggregate_result_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="aggregate.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
 
 def render_restore() -> None:

@@ -10,6 +10,7 @@ import pandas as pd
 from cryptography.fernet import Fernet
 
 from privacy_data_agent.anonymizer import anonymize_dataframe
+from privacy_data_agent.detectors import SalaryGroup
 
 
 def encrypt_mapping_json(mapping_json: str, key: str) -> bytes:
@@ -307,7 +308,7 @@ def anonymize_upload(
     encryption_key: str | None = None,
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
-    anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> dict[str, bytes | str | int]:
     seed: MappingFile | None = None
     if seed_mapping_filename and seed_mapping_content:
@@ -321,7 +322,7 @@ def anonymize_upload(
             header_row=header_row,
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
-            anonymize_region=anonymize_region,
+            keep_salary_groups=keep_salary_groups,
         )
         result_mapping = workbook_result.mapping
         row_count = workbook_result.row_count
@@ -329,7 +330,7 @@ def anonymize_upload(
         anonymized_xlsx = workbook_result.workbook_bytes
     elif suffix == ".numbers":  # Apple Numbers - treat as CSV
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -343,7 +344,7 @@ def anonymize_upload(
                 header_row=header_row,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
-                anonymize_region=anonymize_region,
+                keep_salary_groups=keep_salary_groups,
             )
             result_mapping = workbook_result.mapping
             row_count = workbook_result.row_count
@@ -354,7 +355,7 @@ def anonymize_upload(
             buffer = BytesIO(content)
             xls_df = pd.read_excel(buffer, engine="xlrd")
             buffer.seek(0)
-            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
+            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
             result_mapping = result.mapping
             row_count = len(result.dataframe)
             anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -375,7 +376,7 @@ def anonymize_upload(
         anonymized_pdf = pdf_result.workbook_bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_region=anonymize_region)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -450,7 +451,7 @@ def anonymize_batch(
     encryption_key: str | None = None,
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
-    anonymize_region: bool = True,
+    keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> dict:
     """
     Process multiple files sequentially, accumulating mapping across all files.
@@ -484,7 +485,7 @@ def anonymize_batch(
                 header_row=header_row,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
-                anonymize_region=anonymize_region,
+                keep_salary_groups=keep_salary_groups,
             )
             mapping = wb_result.mapping
             row_count = wb_result.row_count
@@ -515,7 +516,7 @@ def anonymize_batch(
                 seed_mapping=accumulated,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
-                anonymize_region=anonymize_region,
+                keep_salary_groups=keep_salary_groups,
             )
             mapping = result.mapping
             row_count = len(result.dataframe)
