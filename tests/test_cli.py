@@ -1,9 +1,17 @@
 from cryptography.fernet import Fernet
+from docx import Document
 from openpyxl import Workbook, load_workbook
 from typer.testing import CliRunner
 
 from privacy_data_agent.cli import app
 from privacy_data_agent.mapping_store import load_local_mapping
+
+
+def _make_docx(path):
+    doc = Document()
+    doc.add_paragraph("张三负责本季度招聘。")
+    doc.save(path)
+    return path
 
 
 def test_cli_requires_mapping_key(tmp_path, monkeypatch):
@@ -135,6 +143,92 @@ def test_cli_keep_salary_group_rejects_unknown_group(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert not (tmp_path / "anonymized.xlsx").exists()
+
+
+# ── T6: docx + 可选开关 → exit 1（三个真正到达 CLI 的开关逐个测） ─────────
+
+def test_cli_docx_with_no_flags_succeeds(tmp_path, monkeypatch):
+    """不带任何可选开关时，docx 照常处理，不触发守卫。"""
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    docx_path = _make_docx(tmp_path / "input.docx")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["anonymize", str(docx_path), "--output-dir", str(tmp_path / "out")])
+
+    assert result.exit_code == 0
+
+
+def test_cli_docx_with_job_title_flag_exits_1(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    docx_path = _make_docx(tmp_path / "input.docx")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["anonymize", str(docx_path), "--output-dir", str(tmp_path / "out"), "--anonymize-job-title"],
+    )
+
+    assert result.exit_code == 1
+    assert "不支持" in result.output
+    assert not (tmp_path / "out" / "anonymized.csv").exists()
+
+
+def test_cli_docx_with_no_department_flag_exits_1(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    docx_path = _make_docx(tmp_path / "input.docx")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["anonymize", str(docx_path), "--output-dir", str(tmp_path / "out"), "--no-anonymize-department"],
+    )
+
+    assert result.exit_code == 1
+    assert not (tmp_path / "out" / "anonymized.csv").exists()
+
+
+def test_cli_docx_with_keep_salary_group_flag_exits_1(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    docx_path = _make_docx(tmp_path / "input.docx")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "anonymize",
+            str(docx_path),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--keep-salary-group",
+            "labor_cost",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert not (tmp_path / "out" / "anonymized.csv").exists()
+
+
+def test_cli_xlsx_with_flags_is_unaffected_by_docx_guard(tmp_path, monkeypatch):
+    """守卫只拦 docx/pdf，xlsx 带开关必须继续正常工作（对照组）。"""
+    monkeypatch.delenv("PRIVACY_AGENT_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "anonymize",
+            "tests/fixtures/golden_sample.xlsx",
+            "--output-dir",
+            str(tmp_path),
+            "--anonymize-job-title",
+            "--no-anonymize-department",
+            "--keep-salary-group",
+            "labor_cost",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "anonymized.xlsx").exists()
 
 
 def test_cli_anonymize_xlsx_outputs_preserved_workbook(tmp_path, monkeypatch):

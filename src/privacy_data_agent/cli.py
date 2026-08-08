@@ -33,6 +33,20 @@ def anonymize(
         "Default: none kept, all salary columns anonymized.",
     ),
 ) -> None:
+    # docx/pdf 处理时列语义会被拍平（docx 整篇拍成单列 "text"，pdf 目前完全
+    # 不支持——见 TODOS.md），这三个开关对这两种格式从不生效。与其让用户以为
+    # 开关生效了、实际静默无效，不如在这里直接拒绝，把静默无效变成明确报错。
+    suffix = input_path.suffix.lower()
+    if suffix in (".docx", ".pdf") and (
+        anonymize_job_title or not anonymize_department or keep_salary_group
+    ):
+        typer.echo(
+            f"该格式（{suffix}）不支持 --anonymize-job-title / --no-anonymize-department / "
+            "--keep-salary-group 开关：docx 处理时列名语义会被拍平，pdf 暂不支持任何开关。"
+            "请去掉这些开关重新运行，或改用 xlsx/csv。"
+        )
+        raise typer.Exit(code=1)
+
     artifacts = anonymize_file(
         input_path=input_path,
         output_dir=output_dir,
