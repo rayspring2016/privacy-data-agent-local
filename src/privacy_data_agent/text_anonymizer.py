@@ -90,6 +90,13 @@ _INLINE_RIGHT_TRIM: frozenset[str] = frozenset(
     | set("的了和或与及而且也被从让到把如虽然虽")
 )
 
+# 内嵌扫描左侧词境排除：这些两字词的末字恰好是单字百家姓（如"历史"的"史"），
+# 锚点左侧出现这类词时，说明锚点字其实是已有词的词尾，不是姓名起点——
+# 整个跳过，不进入候选生成。逐个发现逐个加，不预先穷举（跟其他黑名单同风格）。
+_INLINE_LEFT_CONTEXT_EXCLUDE: frozenset[str] = frozenset({
+    "历史",  # 历+史：如"历史数据""历史记录"，"史"被误当姓氏锚点（2026-08-09 发现）
+})
+
 # 名字列表分隔符（"张三、李四；王五，赵六"格式中的分隔字符）
 _LIST_DELIMITERS: frozenset[str] = frozenset("、，；：。\n\r\t -–—")
 
@@ -162,6 +169,9 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
         i = 0
         while i < len(text):
             if text[i] in _INLINE_SINGLE_SURNAMES:
+                if i >= 1 and text[i - 1 : i + 1] in _INLINE_LEFT_CONTEXT_EXCLUDE:
+                    i += 1
+                    continue
                 matched = False
                 for name_len in (4, 3, 2):          # 最长优先
                     end = i + name_len

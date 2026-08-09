@@ -34,3 +34,14 @@ def test_anonymize_text_none_raises_type_error():
 
     with pytest.raises(TypeError):
         anonymize_text(None)
+
+
+def test_anonymize_text_does_not_mangle_lishi_shuju():
+    # 已知 bug（2026-08-09 jarvis 管道联调发现）：内嵌人名扫描器把"历史数据"
+    # 里的"史"当成姓氏锚点，3字候选"史数据"被 JOB_TITLE_TERM_BLACKLIST
+    # （"数据"在其中）正确拒绝后，回退尝试2字候选"史数"——但2字候选缺少
+    # 任何黑名单校验，被当成人名替换掉，导致"查了历史数据"变成
+    # "查了历PDA_xxxx"，文字残缺。
+    result = anonymize_text("查了历史数据")
+    assert "历史数据" in result.text
+    assert result.replaced is False
