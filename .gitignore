@@ -8,6 +8,10 @@ src/*.egg-info/
 .DS_Store
 docs/superpowers/.DS_Store
 runs/
+pda_inbox/*
+!pda_inbox/.gitkeep
+pda_outbox/*
+!pda_outbox/.gitkeep
 build/
 release/*.egg-info/
 release/*.zip
