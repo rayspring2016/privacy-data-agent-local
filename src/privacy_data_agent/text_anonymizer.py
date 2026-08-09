@@ -34,7 +34,10 @@ DOCUMENT_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], EntityType], ...] = (
             r"[一-龥]{1,8}"
             r"(?:事业部|中心|[部组处科室]|大区|区域)"
             r"(?:[-/／\\][一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域))*"
-            r"(?![门分署落位件队族首])",
+            # 2026-08-09 加入"理"：真实误报案例"要求处理"——"处"作为部门后缀
+            # 单字类的一员，前面允许1-8个任意汉字，导致"要求处"被当成部门名，
+            # 而"处理"其实是最常见的"处"字动词用法。同类风险字符逐个发现逐个加。
+            r"(?![门分署落位件队族首理])",
         ),
         EntityType.DEPARTMENT,
     ),
@@ -46,7 +49,7 @@ DOCUMENT_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], EntityType], ...] = (
             r"[一-龥]{1,8}"
             r"(?:事业部|中心|[部组处科室]|大区|区域)"
             r"(?:[-/／\\][一-龥]{1,8}(?:事业部|中心|[部组处科室]|大区|区域))*"
-            r"(?![门分署落位件队族首])",
+            r"(?![门分署落位件队族首理])",
         ),
         EntityType.DEPARTMENT,
     ),
@@ -69,6 +72,13 @@ _INLINE_ANCHOR_EXCLUDE = frozenset({
     "全", "司", "步", "习", "关", "连", "强", "石", "金",
     "高", "向", "温", "安", "路", "盛", "谷",  # 形容词/名词/介词
     "严", "纪", "党",  # 常见词：严格/纪要/党委（加入避免大量误报）
+    # 2026-08-09 jarvis 网关+codex 记忆管道联调发现：这12个字都是
+    # SURNAME_SET 里的真实姓氏，但在 AI 生成的自然语言长句里，它们作为
+    # 普通词汇/虚词/动词前缀出现的频率远高于作为姓氏——从两篇真实产出
+    # 笔记反解映射表统计，"相关"(9次)、"解决/解释/了解"(7次) 是重灾区。
+    "相", "解", "于", "单", "程", "公", "费",
+    "终", "段", "付", "边", "董", "印", "书", "包", "平",
+    "展",  # "展开"（"开"1字remaining未过黑名单校验，同一根因）
 })
 _INLINE_SINGLE_SURNAMES: frozenset[str] = frozenset(
     s for s in _SINGLE_SURNAMES if s not in _INLINE_ANCHOR_EXCLUDE
@@ -163,7 +173,17 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
             candidates.append((match.start(1), match.end(1), EntityType.EMPLOYEE, name))
 
     # ── 内嵌人名扫描（百家姓锚点，安全子集）──────────────────────────────
-    # 最长优先（4→3→2）+ 右侧裁剪：遇到下一个姓或连词就缩短
+    # 最短优先（2→3→4）：中文姓名最常见的就是"姓+单字名"（2字），一旦
+    # 短候选通过校验就立刻采用、不再往右试更长的。
+    # 2026-08-09 从"最长优先+右侧裁剪"改过来：最长优先是贪婪策略，遇到
+    # "张三加薪"这种姓名后面紧跟真实文字的场景，会把"加薪"也吞进候选
+    # （4字"张三加薪"通过了当时的校验），右侧裁剪只能砍掉明确是姓氏/
+    # 连词的结尾，砍不掉"加薪"这种普通词——treated as part of the name。
+    # 最短优先从根上避免了这个问题：只要2字"张三"本身通过校验就直接停，
+    # 压根不会去构造"张三加薪"这个候选。
+    # 权衡：真实的3-4字姓名（如"张伟明"）如果2字前缀"张伟"恰好也通过
+    # 校验，会被提前截断成"张伟"，"明"字残留明文——这是姓名识别的已知
+    # 漏检之一（比误伤大段无关文字温和得多，且姓氏部分仍正确脱敏）。
     # 仅对长段落，且只用不易误报的安全姓氏子集（_INLINE_SINGLE_SURNAMES）
     if len(stripped) > 4:
         i = 0
@@ -173,14 +193,11 @@ def _entity_spans(text: str) -> list[tuple[int, int, EntityType, str]]:
                     i += 1
                     continue
                 matched = False
-                for name_len in (4, 3, 2):          # 最长优先
+                for name_len in (2, 3, 4):          # 最短优先
                     end = i + name_len
                     if end > len(text):
-                        continue
+                        break
                     name = text[i:end]
-                    # 右侧裁剪：遇到姓氏字或连词则缩短
-                    while len(name) > 2 and name[-1] in _INLINE_RIGHT_TRIM:
-                        name = name[:-1]
                     if not (
                         CHINESE_NAME_RE.match(name)     # 全汉字
                         and _looks_like_chinese_name(name)

@@ -45,3 +45,44 @@ def test_anonymize_text_does_not_mangle_lishi_shuju():
     result = anonymize_text("查了历史数据")
     assert "历史数据" in result.text
     assert result.replaced is False
+
+
+# ── 2026-08-09 jarvis 网关+codex 记忆管道联调发现：内嵌人名扫描器对
+# AI 生成的自然语言长句系统性误报——不是"历史数据"一个孤例。用真实
+# 抓到的原文（从 gateway_capture.py/codex_capture.py 联调时的映射表
+# 反解还原）做回归用例，每个锚点字符出现在了当时的产出笔记里，
+# 已验证是常见虚词/动词/名词，不该被当成姓氏用。
+_KNOWN_FALSE_POSITIVE_SENTENCES = [
+    "让我搜索一下相关的知识库信息",
+    "我需要了解一下相关的内容背景",
+    "让我查一下相关数据源",
+    "这是基于公司既有的相关分析",
+    "这部分单一源软件需要单独保留",
+    "整个流程体验和过程与管理有关",
+    "涉及公司的公积金与采购流程",
+    "费用之类的费用需要单独核算",
+    "确认终端的唯一标识符",
+    "根据董秘办的要求处理会议纪要",
+    "文件已经打印在法务的柜子里",
+    "书与阅读相关的包与资料清单",
+    "把内容平铺展开来看",
+]
+
+
+def test_anonymize_text_does_not_mangle_known_false_positive_sentences():
+    for sentence in _KNOWN_FALSE_POSITIVE_SENTENCES:
+        result = anonymize_text(sentence)
+        assert result.replaced is False, f"误判触发: {sentence!r} -> {result.text!r}"
+        assert result.text == sentence
+
+
+def test_anonymize_text_matches_shortest_valid_name_not_greedy_longest():
+    # 已知 bug：贪婪的"最长优先(4→3→2)"策略会把正确的短匹配"张三"
+    # 继续往右吃，吃成错误的"张三加薪"（"加薪"两字被误吞）。
+    # 改成"最短优先"后，"张三"一旦通过校验就应该立刻采用，不再尝试更长候选。
+    result = anonymize_text("张三加薪到25000，帮我分析一下")
+    token = next(e.token for e in result.mapping.entries)
+    original = next(e.original for e in result.mapping.entries)
+    assert original == "张三"
+    assert "加薪到25000" in result.text
+    assert result.text == f"{token}加薪到25000，帮我分析一下"
