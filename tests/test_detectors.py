@@ -321,6 +321,31 @@ def test_resolve_entity_from_label_threads_keep_salary_groups():
     assert resolve_entity_from_label("月薪", keep_salary_groups=kept) == EntityType.SALARY
 
 
+def test_is_pass_through_column_anonymize_salary_false():
+    """anonymize_salary=False 时，所有薪资列都直接放行不脱敏（类似于部门）。"""
+    assert is_pass_through_column("人力成本", anonymize_salary=False) is True
+    assert is_pass_through_column("月薪", anonymize_salary=False) is True
+    assert is_pass_through_column("工资", anonymize_salary=False) is True
+    assert is_pass_through_column("社保公积金", anonymize_salary=False) is True
+    assert is_pass_through_column("绩效奖金", anonymize_salary=False) is True
+    # 非薪资列不受影响
+    assert is_pass_through_column("姓名", anonymize_salary=False) is False
+
+
+def test_resolve_entity_from_label_anonymize_salary_false():
+    """左右结构中，anonymize_salary=False 也会放行薪资标签。"""
+    assert resolve_entity_from_label("基本工资", anonymize_salary=False) is None
+    assert resolve_entity_from_label("基本工资", anonymize_salary=True) == EntityType.SALARY
+
+
+def test_detect_cell_entity_type_anonymize_salary_false():
+    """在 SALARY 列中，anonymize_salary=False 时单元格不脱敏。"""
+    from privacy_data_agent.detectors import detect_cell_entity_type
+    from privacy_data_agent.models import EntityType
+
+    assert detect_cell_entity_type("10000", column_type=EntityType.SALARY, anonymize_salary=False) is None
+
+
 def test_pure_digit_employee_id_requires_column_context():
     """Pure-digit IDs (e.g. 001234) must be in an EMPLOYEE_ID column to be detected."""
     from privacy_data_agent.detectors import detect_cell_entity_type

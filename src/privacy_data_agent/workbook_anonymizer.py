@@ -68,6 +68,7 @@ def anonymize_xlsx_bytes(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> WorkbookAnonymizeResult:
     workbook = load_workbook(BytesIO(content))
@@ -99,6 +100,7 @@ def anonymize_xlsx_bytes(
                     anonymize_job_title=anonymize_job_title,
                     anonymize_department=anonymize_department,
                     anonymize_region=anonymize_region,
+                    anonymize_salary=anonymize_salary,
                     keep_salary_groups=keep_salary_groups,
                 )
                 if entity_type is None:
@@ -136,6 +138,7 @@ def anonymize_xlsx_bytes(
                         anonymize_job_title=anonymize_job_title,
                         anonymize_department=anonymize_department,
                         anonymize_region=anonymize_region,
+                        anonymize_salary=anonymize_salary,
                         keep_salary_groups=keep_salary_groups,
                     ):
                         continue
@@ -157,11 +160,12 @@ def anonymize_xlsx_bytes(
                             cell.value = result
                     else:
                         # 列类型已知时：EMPLOYEE 已在上面处理；
-                        # 其他类型（JOB_TITLE/DEPARTMENT 等）直接用 column_type，不做内容二次校验。
+                        # 其他类型（JOB_TITLE/DEPARTMENT/SALARY 等）直接用 column_type，不做内容二次校验。
                         # 当 column_type=None 时，用 detect_high_confidence_cell_entity_type 做回退检测。
                         entity_type = (
                             None
-                            if column_type == EntityType.DEPARTMENT and not anonymize_department
+                            if (column_type == EntityType.DEPARTMENT and not anonymize_department)
+                            or (column_type == EntityType.SALARY and not anonymize_salary)
                             else column_type
                         ) or detect_high_confidence_cell_entity_type(text)
                         if (
@@ -193,6 +197,7 @@ def anonymize_xlsx_file(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> WorkbookAnonymizeResult:
     content = Path(input_path).read_bytes()
@@ -203,6 +208,7 @@ def anonymize_xlsx_file(
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
         anonymize_region=anonymize_region,
+        anonymize_salary=anonymize_salary,
         keep_salary_groups=keep_salary_groups,
     )
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)

@@ -52,6 +52,7 @@ def anonymize_dataframe(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> AnonymizeResult:
     state = AnonymizerState(seed_mapping=seed_mapping)
@@ -63,6 +64,7 @@ def anonymize_dataframe(
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
             anonymize_region=anonymize_region,
+            anonymize_salary=anonymize_salary,
             keep_salary_groups=keep_salary_groups,
         ):
             continue
@@ -76,6 +78,9 @@ def anonymize_dataframe(
                 continue
             # DEPARTMENT 列按可选参数过滤
             if column_type == EntityType.DEPARTMENT and not anonymize_department:
+                continue
+            # SALARY 列按可选参数过滤
+            if column_type == EntityType.SALARY and not anonymize_salary:
                 continue
             entity_type = column_type or detect_high_confidence_cell_entity_type(text)
             if entity_type is None and is_weak_person_column and looks_like_short_chinese_person_name(text):

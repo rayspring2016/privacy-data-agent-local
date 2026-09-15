@@ -26,6 +26,7 @@ def anonymize(
     header_row: int | None = typer.Option(None, "--header-row", "-hr", help="1-based header row number (default: auto-detect)"),
     anonymize_job_title: bool = typer.Option(False, "--anonymize-job-title", help="Also anonymize job title columns such as 岗位名称 / 职位 / 职务."),
     anonymize_department: bool = typer.Option(True, "--anonymize-department/--no-anonymize-department", help="Anonymize department names (default: enabled)."),
+    anonymize_salary: bool = typer.Option(True, "--anonymize-salary/--no-anonymize-salary", help="Anonymize salary columns (default: enabled)."),
     keep_salary_group: list[SalaryGroup] = typer.Option(
         [],
         "--keep-salary-group",
@@ -35,15 +36,15 @@ def anonymize(
     ),
 ) -> None:
     # docx/pdf 处理时列语义会被拍平（docx 整篇拍成单列 "text"，pdf 目前完全
-    # 不支持——见 TODOS.md），这三个开关对这两种格式从不生效。与其让用户以为
+    # 不支持——见 TODOS.md），这四个开关对这两种格式从不生效。与其让用户以为
     # 开关生效了、实际静默无效，不如在这里直接拒绝，把静默无效变成明确报错。
     suffix = input_path.suffix.lower()
     if suffix in (".docx", ".pdf") and (
-        anonymize_job_title or not anonymize_department or keep_salary_group
+        anonymize_job_title or not anonymize_department or not anonymize_salary or keep_salary_group
     ):
         typer.echo(
             f"该格式（{suffix}）不支持 --anonymize-job-title / --no-anonymize-department / "
-            "--keep-salary-group 开关：docx 处理时列名语义会被拍平，pdf 暂不支持任何开关。"
+            "--no-anonymize-salary / --keep-salary-group 开关：docx 处理时列名语义会被拍平，pdf 暂不支持任何开关。"
             "请去掉这些开关重新运行，或改用 xlsx/csv。"
         )
         raise typer.Exit(code=1)
@@ -54,6 +55,7 @@ def anonymize(
         header_row=header_row,
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
+        anonymize_salary=anonymize_salary,
         keep_salary_groups=frozenset(keep_salary_group),
     )
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")

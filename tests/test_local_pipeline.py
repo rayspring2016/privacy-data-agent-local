@@ -61,6 +61,7 @@ def test_local_anonymize_records_flag_state_in_manifest(tmp_path):
     assert manifest["flags"] == {
         "anonymize_job_title": False,
         "anonymize_department": True,
+        "anonymize_salary": True,
         "kept_salary_groups": ["labor_cost"],
     }
 

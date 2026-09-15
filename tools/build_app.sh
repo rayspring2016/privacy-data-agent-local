@@ -15,8 +15,22 @@ RELEASE_DIR="$PROJECT_DIR/release"
 VERSION=$(grep '^version' "$PROJECT_DIR/pyproject.toml" | head -1 | sed 's/.*= *"//' | sed 's/".*//')
 echo "Building privacy-data-agent v$VERSION"
 
-# ── Clean fat directories before packaging ─────────────────────────────
+# ── Sync source code and configs to release app ─────────────────────────
 RELEASE_APP="$RELEASE_DIR/privacy-data-agent-local"
+echo "→ Syncing source code to release folder..."
+rm -rf "$RELEASE_APP/src"
+mkdir -p "$RELEASE_APP/src"
+rsync -a \
+    --exclude='__pycache__' \
+    --exclude='*.py[cod]' \
+    --exclude='*.egg-info' \
+    --exclude='.DS_Store' \
+    "$PROJECT_DIR/src/" "$RELEASE_APP/src/"
+cp "$PROJECT_DIR/pyproject.toml" "$RELEASE_APP/pyproject.toml"
+cp "$PROJECT_DIR/README.md" "$RELEASE_APP/README.md"
+echo "   ✓ Source synced"
+
+# ── Clean fat directories before packaging ─────────────────────────────
 echo "→ Cleaning fat directories..."
 rm -rf "$RELEASE_APP/.venv"                                    # dev dependencies + binary libs (~500M)
 rm -rf "$RELEASE_APP/.streamlit"                               # streamlit config (not needed locally)

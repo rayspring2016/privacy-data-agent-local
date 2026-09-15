@@ -308,6 +308,7 @@ def anonymize_upload(
     encryption_key: str | None = None,
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> dict[str, bytes | str | int]:
     seed: MappingFile | None = None
@@ -322,6 +323,7 @@ def anonymize_upload(
             header_row=header_row,
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
+            anonymize_salary=anonymize_salary,
             keep_salary_groups=keep_salary_groups,
         )
         result_mapping = workbook_result.mapping
@@ -330,7 +332,7 @@ def anonymize_upload(
         anonymized_xlsx = workbook_result.workbook_bytes
     elif suffix == ".numbers":  # Apple Numbers - treat as CSV
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -344,6 +346,7 @@ def anonymize_upload(
                 header_row=header_row,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
+                anonymize_salary=anonymize_salary,
                 keep_salary_groups=keep_salary_groups,
             )
             result_mapping = workbook_result.mapping
@@ -355,7 +358,7 @@ def anonymize_upload(
             buffer = BytesIO(content)
             xls_df = pd.read_excel(buffer, engine="xlrd")
             buffer.seek(0)
-            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
+            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
             result_mapping = result.mapping
             row_count = len(result.dataframe)
             anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -376,7 +379,7 @@ def anonymize_upload(
         anonymized_pdf = pdf_result.workbook_bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, keep_salary_groups=keep_salary_groups)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
         result_mapping = result.mapping
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -451,6 +454,7 @@ def anonymize_batch(
     encryption_key: str | None = None,
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> dict:
     """
@@ -485,6 +489,7 @@ def anonymize_batch(
                 header_row=header_row,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
+                anonymize_salary=anonymize_salary,
                 keep_salary_groups=keep_salary_groups,
             )
             mapping = wb_result.mapping
@@ -516,6 +521,7 @@ def anonymize_batch(
                 seed_mapping=accumulated,
                 anonymize_job_title=anonymize_job_title,
                 anonymize_department=anonymize_department,
+                anonymize_salary=anonymize_salary,
                 keep_salary_groups=keep_salary_groups,
             )
             mapping = result.mapping

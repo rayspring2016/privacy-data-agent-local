@@ -17,7 +17,7 @@ SALARY_GROUP_LABELS: dict[SalaryGroup, str] = {
     SalaryGroup.PERFORMANCE_PAY: "绩效工资/奖金",
 }
 
-VERSION = "1.14.1"
+VERSION = "1.15.0"
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -661,6 +661,7 @@ def render_anonymize() -> None:
         ("custom_header_row", 1),
         ("anonymize_job_title", False),
         ("anonymize_department", True),
+        ("anonymize_salary", True),  # 默认脱敏，类似于部门名称；关闭后保留明文
         ("keep_salary_group", []),  # v1.15.0: 默认不放开任何薪资组，全部脱敏
         ("processing", False),
         ("anonymize_result", None),
@@ -712,6 +713,7 @@ def render_anonymize() -> None:
                         encryption_key=st.session_state.encryption_key,
                         anonymize_job_title=st.session_state.anonymize_job_title,
                         anonymize_department=st.session_state.anonymize_department,
+                        anonymize_salary=st.session_state.anonymize_salary,
                         keep_salary_groups=frozenset(st.session_state.keep_salary_group),
                     )
                     st.session_state.anonymize_batch_result = batch_result
@@ -728,6 +730,7 @@ def render_anonymize() -> None:
                         encryption_key=st.session_state.encryption_key,
                         anonymize_job_title=st.session_state.anonymize_job_title,
                         anonymize_department=st.session_state.anonymize_department,
+                        anonymize_salary=st.session_state.anonymize_salary,
                         keep_salary_groups=frozenset(st.session_state.keep_salary_group),
                     )
                     st.session_state.anonymize_result = result
@@ -801,6 +804,7 @@ def render_anonymize() -> None:
                         "custom_header_row": 1,
                         "anonymize_job_title": False,
                         "anonymize_department": True,
+                        "anonymize_salary": True,
                         "keep_salary_group": [],
                         "anonymize_batch_result": None,
                         "anonymize_result": None,
@@ -1095,22 +1099,31 @@ def render_anonymize() -> None:
                 key="anonymize_department",
                 help="默认脱敏。关闭后，部门名称列将保留原值，不替换为 token。",
             )
+            st.checkbox(
+                "脱敏薪酬 / 薪资数据",
+                value=st.session_state.anonymize_salary,
+                key="anonymize_salary",
+                help="默认脱敏。关闭后，所有薪资/薪酬相关列将保留原值，不替换为 token（类似于部门名称）。",
+            )
             st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
 
-            st.markdown("**放开哪些薪资子组（默认全部脱敏）**")
-            st.caption(
-                "只勾选你确实要发给 AI/外部看的组。比如只想让 AI 看到「人力成本」做人效分析，"
-                "个人薪酬、绩效奖金这些不勾——保持脱敏。"
-            )
-            selected_labels = st.multiselect(
-                "放开的薪资组",
-                options=list(SALARY_GROUP_LABELS.values()),
-                default=[SALARY_GROUP_LABELS[g] for g in st.session_state.keep_salary_group],
-                key="keep_salary_group_select",
-                label_visibility="collapsed",
-            )
-            label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
-            st.session_state.keep_salary_group = [label_to_group[label] for label in selected_labels]
+            if st.session_state.anonymize_salary:
+                st.markdown("**放开哪些薪资子组（默认全部脱敏）**")
+                st.caption(
+                    "只勾选你确实要发给 AI/外部看的组。比如只想让 AI 看到「人力成本」做人效分析，"
+                    "个人薪酬、绩效奖金这些不勾——保持脱敏。"
+                )
+                selected_labels = st.multiselect(
+                    "放开的薪资组",
+                    options=list(SALARY_GROUP_LABELS.values()),
+                    default=[SALARY_GROUP_LABELS[g] for g in st.session_state.keep_salary_group],
+                    key="keep_salary_group_select",
+                    label_visibility="collapsed",
+                )
+                label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
+                st.session_state.keep_salary_group = [label_to_group[label] for label in selected_labels]
+            else:
+                st.caption("💡 当前已关闭薪资脱敏，所有薪酬/薪资列均将保留明文。")
 
         table_suffixes = {Path(f.name).suffix.lower() for f in st.session_state.anonymize_files}
         has_table_file = bool(table_suffixes & {".xlsx", ".csv", ".numbers", ".et"})
@@ -1164,6 +1177,7 @@ def render_anonymize() -> None:
                 "custom_header_row": 1,
                 "anonymize_job_title": False,
                 "anonymize_department": True,
+                "anonymize_salary": True,
                 "keep_salary_group": [],
                 "anonymize_result": None,
                 "anonymize_batch_result": None,

@@ -34,6 +34,7 @@ def anonymize_file(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> LocalAnonymizeArtifacts:
     output_path = Path(output_dir)
@@ -58,6 +59,7 @@ def anonymize_file(
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
             anonymize_region=anonymize_region,
+            anonymize_salary=anonymize_salary,
             keep_salary_groups=keep_salary_groups,
         )
         mapping = anonymized_workbook.mapping
@@ -68,6 +70,7 @@ def anonymize_file(
             anonymize_job_title=anonymize_job_title,
             anonymize_department=anonymize_department,
             anonymize_region=anonymize_region,
+            anonymize_salary=anonymize_salary,
             keep_salary_groups=keep_salary_groups,
         )
         anonymized.dataframe.to_csv(artifacts.anonymized_data_path, index=False)
@@ -90,6 +93,7 @@ def anonymize_file(
                 "flags": {
                     "anonymize_job_title": anonymize_job_title,
                     "anonymize_department": anonymize_department,
+                    "anonymize_salary": anonymize_salary,
                     "kept_salary_groups": sorted(g.value for g in keep_salary_groups),
                 },
             },

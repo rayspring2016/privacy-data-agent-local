@@ -278,6 +278,7 @@ def resolve_entity_from_label(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> EntityType | None:
     """从字段标签文本推断其对应值的实体类型（用于左右结构）。"""
@@ -286,6 +287,7 @@ def resolve_entity_from_label(
         anonymize_job_title=anonymize_job_title,
         anonymize_department=anonymize_department,
         anonymize_region=anonymize_region,
+        anonymize_salary=anonymize_salary,
         keep_salary_groups=keep_salary_groups,
     ):
         return None
@@ -300,6 +302,7 @@ def is_pass_through_column(
     anonymize_job_title: bool = False,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
 ) -> bool:
     normalized = _normalize_column_name(column_name)
@@ -314,11 +317,14 @@ def is_pass_through_column(
     detected = detect_column_entity_type(column_name)
     if detected == EntityType.DEPARTMENT and not anonymize_department:
         return True
-    # 可选脱敏：SALARY 子组（默认全部脱敏，keep_salary_groups 指定放行的组）
-    if detected == EntityType.SALARY and keep_salary_groups:
-        group = resolve_salary_group(column_name)
-        if group is not None and group in keep_salary_groups:
+    # 可选脱敏：SALARY（默认=True，即默认脱敏；关闭后全列放行保留原值）
+    if detected == EntityType.SALARY:
+        if not anonymize_salary:
             return True
+        if keep_salary_groups:
+            group = resolve_salary_group(column_name)
+            if group is not None and group in keep_salary_groups:
+                return True
     return False
 
 
@@ -768,6 +774,7 @@ def detect_cell_entity_type(
     column_type: EntityType | None = None,
     anonymize_department: bool = True,
     anonymize_region: bool = True,
+    anonymize_salary: bool = True,
 ) -> EntityType | None:
     """
     Detect entity type from cell value.
@@ -777,6 +784,7 @@ def detect_cell_entity_type(
     二次校验层：
     - EMPLOYEE 列（强规则推断）：用百家姓白名单兜底，排除"张主管"等岗位名
     - DEPARTMENT/REGION 列：按 anonymize_department/anonymize_region 决定是否脱敏
+    - SALARY 列：按 anonymize_salary 决定是否脱敏
     - PHONE/EMAIL：正则匹配后再做格式校验，排除测试号/虚假邮箱
     """
     text = "" if value is None else str(value).strip()
@@ -796,6 +804,10 @@ def detect_cell_entity_type(
 
     # 可选脱敏：DEPARTMENT 列
     if column_type == EntityType.DEPARTMENT and not anonymize_department:
+        return None
+
+    # 可选脱敏：SALARY 列
+    if column_type == EntityType.SALARY and not anonymize_salary:
         return None
 
     for pattern, entity_type in DETECTORS_BY_RE:
