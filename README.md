@@ -96,6 +96,8 @@ Mac:     mac/03-launch-web-ui-mac.command
 
 **岗位字段**：`岗位名称` / `职位` / `职务` 默认保留，便于分析岗位结构；如岗位本身也需要隐藏，可在「字段脱敏范围」中开启岗位脱敏。`离职原因` / `离职类型` / `状态` 等业务判断列默认保留。
 
+**部门与薪资字段**：同一区域可选择是否脱敏部门和薪资。薪资默认全部脱敏，也可以只放开提成、绩效奖金、社保公积金、补贴、人力成本或个人薪酬中的指定类别。例如核验提成时，只放开「提成」，其他薪资类别继续脱敏。
+
 ### 报告反脱敏
 
 支持格式：`.md` / `.txt` / `.html` / `.docx` / `.pptx`
@@ -124,6 +126,64 @@ privacy-data-agent anonymize input.csv --output-dir runs/local --anonymize-job-t
 - `runs/local/mapping.local.json`：程序使用的匹配文件
 - `runs/local/mapping_table.csv`：方便人工查看的匹配表
 - `runs/local/local_manifest.json`：本次处理的文件清单
+
+### 无界面批量处理与跨月追加
+
+以下命令在项目虚拟环境激活后运行，无需打开网页。Mac 可先进入项目目录，再执行 `source .venv/bin/activate`。
+
+传入文件夹即可按文件名顺序处理其第一层的 XLSX/CSV；不递归子文件夹，忽略 Excel 的 `~$` 临时文件。所有成功文件共用累计映射，相同类型、相同原始文本沿用同一编号。不同写法、别名和同名人员仍需业务核对，程序不推断身份。
+
+```bash
+# 批量核验提成：只保留提成金额，姓名、客户、部门及其他薪资继续脱敏
+privacy-data-agent anonymize "/路径/各月提成表" \
+  --keep-salary-group commission \
+  --output-dir "/路径/第一批脱敏结果"
+
+# 下个月追加：导入上一批的完整映射，输出到新的目录
+privacy-data-agent anonymize "/路径/新增月份" \
+  --mapping "/路径/第一批脱敏结果/mapping.local.json" \
+  --keep-salary-group commission \
+  --output-dir "/路径/第二批脱敏结果"
+```
+
+`--mapping` 也适用于单文件，接受本工具生成的明文 `mapping.local.json` 或 `mapping_table.csv`，不会修改输入映射。网页启用加密后生成的映射暂不支持通过此参数导入。追加月份时应沿用相同的字段选项；映射用于沿用编号，不会自动恢复上次的字段设置。
+
+| 参数 | 效果 |
+|------|------|
+| `--no-anonymize-department` | 保留部门名称；默认脱敏 |
+| `--anonymize-job-title` | 脱敏岗位；默认保留 |
+| `--no-anonymize-salary` | 保留全部薪资金额；默认脱敏 |
+| `--keep-salary-group commission` | 仅放开提成 / 佣金 |
+| `--keep-salary-group performance_pay` | 放开绩效工资 / 奖金 |
+| `--keep-salary-group personal_comp` | 放开个人工资 / 薪酬 |
+| `--keep-salary-group social_insurance` | 放开社保 / 公积金 |
+| `--keep-salary-group allowance` | 放开补贴 |
+| `--keep-salary-group labor_cost` | 放开人力成本 / 收入 |
+| `--header-row 2` | 指定所有输入表的第2行为表头；默认自动识别 |
+
+`--keep-salary-group` 可重复传入以保留多个类别。分类依据列名；使用前核对自定义表头的识别结果。这些字段开关用于表格，DOCX/PDF 不支持同样的列级选择。
+
+批量输出目录必须是新的或空目录，防止覆盖已有结果。输出结构：
+
+```text
+第一批脱敏结果/
+  mapping.local.json         # 全批次完整映射，下个月继续使用这一份
+  mapping_table.csv          # 同一映射的人工核对表
+  batch_manifest.json        # 逐文件状态、原始路径、输出位置和本次字段设置
+  files/
+    0001/
+      anonymized.xlsx        # 第一个文件的脱敏数据
+      mapping.local.json     # 截至这个文件的累计映射
+      mapping_table.csv
+      local_manifest.json
+    0002/
+      anonymized.csv
+      ...
+```
+
+有单个文件失败时会继续其余文件，终端显示成功/失败数量。`batch_manifest.json` 记录失败的异常类型，不记录可能包含原始单元格值的异常文本。全部成功时退出码为0，存在失败或输入错误时为1，便于脚本判断。只处理成功且有记录的输出；失败文件目录可能留有不完整产物。
+
+只分享需要的 `anonymized.xlsx` / `anonymized.csv`。映射和处理记录（包含原始文件路径）仅限本地保存，勿将整个结果文件夹直接外发。未识别字段、批注、工作表名等内容仍需检查，本次增强不改变既有识别范围。
 
 ### 反脱敏
 

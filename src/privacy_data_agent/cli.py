@@ -8,7 +8,8 @@ import typer
 from privacy_data_agent.aggregator import aggregate_file
 from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.llm_client import FakeModelProvider, OpenAIModelProvider
-from privacy_data_agent.local_pipeline import anonymize_file, restore_report_file
+from privacy_data_agent.local_pipeline import anonymize_directory, anonymize_file, restore_report_file
+from privacy_data_agent.mapping_store import load_local_mapping
 from privacy_data_agent.pipeline import run_analysis
 
 app = typer.Typer(no_args_is_help=True)
@@ -21,7 +22,7 @@ def _noop() -> None:
 
 @app.command()
 def anonymize(
-    input_path: Path = typer.Argument(..., exists=True, readable=True),
+    input_path: Path = typer.Argument(..., exists=True, readable=True, help="单文件或文件夹；文件夹仅处理第一层 XLSX/CSV。"),
     output_dir: Path = typer.Option(Path("runs/local"), "--output-dir", "-o"),
     header_row: int | None = typer.Option(None, "--header-row", "-hr", help="1-based header row number (default: auto-detect)"),
     anonymize_job_title: bool = typer.Option(False, "--anonymize-job-title", help="Also anonymize job title columns such as 岗位名称 / 职位 / 职务."),
@@ -33,6 +34,10 @@ def anonymize(
         help="Keep this salary sub-group as plaintext instead of anonymizing it. "
         "Repeatable, e.g. --keep-salary-group labor_cost --keep-salary-group allowance. "
         "Default: none kept, all salary columns anonymized.",
+    ),
+    mapping_path: Path | None = typer.Option(
+        None, "--mapping", "-m", exists=True, readable=True, dir_okay=False,
+        help="导入已有明文 JSON/CSV 匹配文件，保持跨文件、跨月份编号一致。",
     ),
 ) -> None:
     # docx/pdf 处理时列语义会被拍平（docx 整篇拍成单列 "text"，pdf 目前完全
@@ -49,15 +54,39 @@ def anonymize(
         )
         raise typer.Exit(code=1)
 
-    artifacts = anonymize_file(
-        input_path=input_path,
-        output_dir=output_dir,
-        header_row=header_row,
-        anonymize_job_title=anonymize_job_title,
-        anonymize_department=anonymize_department,
-        anonymize_salary=anonymize_salary,
-        keep_salary_groups=frozenset(keep_salary_group),
-    )
+    seed_mapping = None
+    if mapping_path is not None:
+        try:
+            seed_mapping = load_local_mapping(mapping_path)
+        except (ValueError, OSError, KeyError):
+            typer.echo("无法读取映射文件，请使用有效的明文 mapping.local.json 或 mapping_table.csv。")
+            raise typer.Exit(code=1)
+
+    options = {
+        "input_path": input_path,
+        "output_dir": output_dir,
+        "header_row": header_row,
+        "anonymize_job_title": anonymize_job_title,
+        "anonymize_department": anonymize_department,
+        "anonymize_salary": anonymize_salary,
+        "keep_salary_groups": frozenset(keep_salary_group),
+        "seed_mapping": seed_mapping,
+    }
+    if input_path.is_dir():
+        try:
+            batch = anonymize_directory(**options)
+        except (ValueError, OSError) as exc:
+            typer.echo(str(exc))
+            raise typer.Exit(code=1) from exc
+        typer.echo(f"批量处理：成功 {batch.success_count}，失败 {batch.failure_count}")
+        typer.echo(f"处理记录：{batch.manifest_path}")
+        typer.echo(f"完整映射：{batch.mapping_json_path}")
+        typer.echo("映射及处理记录仅限本地保存；只分享 files 下的 anonymized 数据文件。")
+        if batch.failure_count:
+            raise typer.Exit(code=1)
+        return
+
+    artifacts = anonymize_file(**options)
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")
