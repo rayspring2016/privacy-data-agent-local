@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import zipfile
 import csv
 from io import BytesIO, StringIO
@@ -11,6 +10,8 @@ from cryptography.fernet import Fernet
 
 from privacy_data_agent.anonymizer import anonymize_dataframe
 from privacy_data_agent.detectors import SalaryGroup
+from privacy_data_agent.identity_store import UnifiedIdentityStore
+from privacy_data_agent.person_identity import IdentityReviewError
 
 
 def encrypt_mapping_json(mapping_json: str, key: str) -> bytes:
@@ -24,7 +25,7 @@ def decrypt_mapping_json(encrypted_bytes: bytes, key: str) -> str:
 
 
 def create_encrypted_zip_bundle(
-    stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str, key: str
+    stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str, key: str, review_csv: bytes = b"",
 ) -> bytes:
     """Create a ZIP bundle with the mapping inside encrypted."""
     anonymized_name = f"{stem}_anonymized{suffix}"
@@ -53,11 +54,15 @@ def create_encrypted_zip_bundle(
         "注意：mapping.local.json 已加密，需使用相同密钥解密。\n"
         "      密钥请务必与 mapping.local.json 一起保存在本地，勿外传。\n"
     )
+    if review_csv:
+        readme += "\nidentity_review.csv 为待核验清单。PDA_REVIEW_ 是按出现位置生成的临时编号，不能用于跨项目人员合并。\n"
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(anonymized_name, anonymized_bytes)
         zf.writestr("mapping.local.json", encrypted_mapping)
         zf.writestr("README.txt", readme.encode("utf-8"))
+        if review_csv:
+            zf.writestr("identity_review.csv", review_csv)
     return buf.getvalue()
 from privacy_data_agent.detectors import detect_header_row
 from privacy_data_agent.mapping_store import load_local_mapping, save_mapping_table
@@ -94,7 +99,7 @@ def _read_uploaded_csv(buffer: BytesIO, header_row: int | None) -> pd.DataFrame:
     text = _decode_csv_bytes(buffer.getvalue())
     if header_row is None:
         header_row = _detect_csv_header_row(text)
-    return pd.read_csv(StringIO(text), header=max(0, header_row - 1))
+    return pd.read_csv(StringIO(text), header=max(0, header_row - 1), dtype=object)
 
 
 def _decode_csv_bytes(content: bytes) -> str:
@@ -265,7 +270,7 @@ def mapping_to_table_csv_bytes(mapping: MappingFile) -> bytes:
     return buffer.getvalue()
 
 
-def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str) -> bytes:
+def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suffix: str, review_csv: bytes = b"") -> bytes:
     anonymized_name = f"{stem}_anonymized{suffix}"
     if suffix == ".xlsx":
         file_desc = "脱敏后的 Excel 数据文件"
@@ -291,10 +296,14 @@ def create_zip_bundle(stem: str, anonymized_bytes: bytes, mapping_json: str, suf
         "  4. 点击下载，即可还原真实姓名和信息\n\n"
         "注意：mapping.local.json 含原始敏感数据，请勿外传。\n"
     )
+    if review_csv:
+        readme += "\nidentity_review.csv 为待核验清单。PDA_REVIEW_ 是按出现位置生成的临时编号，不能用于跨项目人员合并。\n"
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(anonymized_name, anonymized_bytes)
         zf.writestr("mapping.local.json", mapping_json.encode("utf-8"))
+        if review_csv:
+            zf.writestr("identity_review.csv", review_csv)
         zf.writestr("README.txt", readme.encode("utf-8"))
     return buf.getvalue()
 
@@ -310,11 +319,36 @@ def anonymize_upload(
     anonymize_department: bool = True,
     anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
+    consistent_ids: bool = False,
+    seed_mapping: MappingFile | None = None,
+    require_unique_people: bool = False,
+    allow_unverified_people: bool = False,
+    preserve_calculations: bool = False,
 ) -> dict[str, bytes | str | int]:
-    seed: MappingFile | None = None
-    if seed_mapping_filename and seed_mapping_content:
+    if preserve_calculations and Path(filename).suffix.lower() in {".docx", ".pdf"}:
+        raise ValueError("分析核验模式需要结构化表格，不支持 DOCX/PDF。")
+    seed: MappingFile | None = seed_mapping
+    if seed is None and seed_mapping_filename and seed_mapping_content:
         seed_path = _write_temp_mapping(seed_mapping_filename, seed_mapping_content)
         seed = load_local_mapping(seed_path)
+    if consistent_ids:
+        if Path(filename).suffix.lower() in {".docx", ".pdf"}:
+            raise ValueError("统一人员编号需要结构化表格，DOCX/PDF 请使用新编号模式。")
+        with UnifiedIdentityStore(seed) as identities:
+            result = anonymize_upload(
+                filename, content, header_row=header_row, encryption_key=encryption_key,
+                anonymize_job_title=anonymize_job_title,
+                anonymize_department=anonymize_department,
+                anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups,
+                seed_mapping=identities.mapping, require_unique_people=True,
+                allow_unverified_people=allow_unverified_people,
+                preserve_calculations=preserve_calculations,
+            )
+            identities.save(MappingFile.model_validate_json(result["mapping_json"]))
+            return result
+    review_items = []
+    formula_count = 0
+    external_link_count = 0
     suffix = Path(filename).suffix.lower()
     if suffix == ".xlsx":
         workbook_result = anonymize_xlsx_bytes(
@@ -325,15 +359,22 @@ def anonymize_upload(
             anonymize_department=anonymize_department,
             anonymize_salary=anonymize_salary,
             keep_salary_groups=keep_salary_groups,
+            require_unique_people=require_unique_people,
+            allow_unverified_people=allow_unverified_people,
+            preserve_calculations=preserve_calculations,
         )
         result_mapping = workbook_result.mapping
+        review_items = workbook_result.review_items
+        formula_count = workbook_result.formula_count
+        external_link_count = workbook_result.external_link_count
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
     elif suffix == ".numbers":  # Apple Numbers - treat as CSV
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups, require_unique_people=require_unique_people, allow_unverified_people=allow_unverified_people, preserve_calculations=preserve_calculations)
         result_mapping = result.mapping
+        review_items = result.review_items
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
@@ -348,8 +389,14 @@ def anonymize_upload(
                 anonymize_department=anonymize_department,
                 anonymize_salary=anonymize_salary,
                 keep_salary_groups=keep_salary_groups,
+                require_unique_people=require_unique_people,
+                allow_unverified_people=allow_unverified_people,
+                preserve_calculations=preserve_calculations,
             )
             result_mapping = workbook_result.mapping
+            review_items = workbook_result.review_items
+            formula_count = workbook_result.formula_count
+            external_link_count = workbook_result.external_link_count
             row_count = workbook_result.row_count
             anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
             anonymized_xlsx = workbook_result.workbook_bytes
@@ -358,8 +405,9 @@ def anonymize_upload(
             buffer = BytesIO(content)
             xls_df = pd.read_excel(buffer, engine="xlrd")
             buffer.seek(0)
-            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
+            result = anonymize_dataframe(xls_df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups, require_unique_people=require_unique_people, allow_unverified_people=allow_unverified_people, preserve_calculations=preserve_calculations)
             result_mapping = result.mapping
+            review_items = result.review_items
             row_count = len(result.dataframe)
             anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
             anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
@@ -379,8 +427,9 @@ def anonymize_upload(
         anonymized_pdf = pdf_result.workbook_bytes
     else:
         df = read_uploaded_table(filename, content, header_row=header_row)
-        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups)
+        result = anonymize_dataframe(df, seed_mapping=seed, anonymize_job_title=anonymize_job_title, anonymize_department=anonymize_department, anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups, require_unique_people=require_unique_people, allow_unverified_people=allow_unverified_people, preserve_calculations=preserve_calculations)
         result_mapping = result.mapping
+        review_items = result.review_items
         row_count = len(result.dataframe)
         anonymized_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = dataframe_to_xlsx_bytes(result.dataframe)
@@ -397,14 +446,15 @@ def anonymize_upload(
         file_suffix = ".xlsx"
 
     mapping_json = result_mapping.model_dump_json(indent=2)
+    review_csv = _review_csv_bytes(review_items)
     stem = Path(filename).stem
     new_count = len(result_mapping.entries) - (len(seed.entries) if seed else 0)
 
     # Use encrypted ZIP bundle if a key is provided; plain bundle otherwise.
     zip_bundle = (
-        create_encrypted_zip_bundle(stem, anonymized_file, mapping_json, file_suffix, encryption_key)
+        create_encrypted_zip_bundle(stem, anonymized_file, mapping_json, file_suffix, encryption_key, review_csv=review_csv)
         if encryption_key
-        else create_zip_bundle(stem, anonymized_file, mapping_json, file_suffix)
+        else create_zip_bundle(stem, anonymized_file, mapping_json, file_suffix, review_csv=review_csv)
     )
 
     # Also expose encrypted mapping JSON when key is provided (for direct download).
@@ -424,26 +474,33 @@ def anonymize_upload(
         "mapping_table_csv": mapping_to_table_csv_bytes(result_mapping),
         "zip_bundle": zip_bundle,
         "encrypted_mapping_json": encrypted_mapping_json,
+        "review_count": len(review_items),
+        "review_csv": review_csv,
+        "formula_count": formula_count,
+        "external_link_count": external_link_count,
+        "preserve_calculations": preserve_calculations,
     }
+
+
+def _review_csv_bytes(items: list[dict[str, str]]) -> bytes:
+    if not items:
+        return b""
+    return pd.DataFrame(items, columns=["location", "token", "status", "reason"]).to_csv(index=False).encode("utf-8-sig")
 
 
 def merge_mapping_jsons(base_json: str, incoming_json: str) -> str:
     """
-    Merge two mapping JSONs by original value, avoiding duplicate tokens.
-    If the same original value appears in both, the base (earlier) token is kept.
+    Merge identity-aware mappings, preserving homonyms and employee ID/email links.
+    Conflicting historical identifiers are rejected.
     """
-    base = json.loads(base_json)
-    incoming = json.loads(incoming_json)
+    from privacy_data_agent.identity_store import merge_identity_mappings
 
-    # Build lookup: original → token (from base)
-    seen: dict[str, dict] = {e["original"]: e for e in base["entries"]}
+    merged = merge_identity_mappings(
+        MappingFile.model_validate_json(base_json),
+        MappingFile.model_validate_json(incoming_json),
+    )
+    return merged.model_dump_json(indent=2)
 
-    for entry in incoming["entries"]:
-        if entry["original"] not in seen:
-            seen[entry["original"]] = entry
-
-    base["entries"] = list(seen.values())
-    return json.dumps(base, ensure_ascii=False, indent=2)
 
 
 def anonymize_batch(
@@ -456,6 +513,11 @@ def anonymize_batch(
     anonymize_department: bool = True,
     anonymize_salary: bool = True,
     keep_salary_groups: frozenset[SalaryGroup] = frozenset(),
+    consistent_ids: bool = False,
+    seed_mapping: MappingFile | None = None,
+    require_unique_people: bool = False,
+    allow_unverified_people: bool = False,
+    preserve_calculations: bool = False,
 ) -> dict:
     """
     Process multiple files sequentially, accumulating mapping across all files.
@@ -465,70 +527,107 @@ def anonymize_batch(
     from privacy_data_agent.models import MappingFile
 
     # Load initial seed if provided
-    accumulated: MappingFile | None = None
-    if first_seed_filename and first_seed_content:
+    accumulated: MappingFile | None = seed_mapping
+    if accumulated is None and first_seed_filename and first_seed_content:
         seed_path = _write_temp_mapping(first_seed_filename, first_seed_content)
         accumulated = load_local_mapping(seed_path)
+    if consistent_ids:
+        with UnifiedIdentityStore(accumulated) as identities:
+            result = anonymize_batch(
+                files, header_row=header_row, encryption_key=encryption_key,
+                anonymize_job_title=anonymize_job_title,
+                anonymize_department=anonymize_department,
+                anonymize_salary=anonymize_salary, keep_salary_groups=keep_salary_groups,
+                seed_mapping=identities.mapping, require_unique_people=True,
+                allow_unverified_people=allow_unverified_people,
+                preserve_calculations=preserve_calculations,
+            )
+            if result["files_processed"]:
+                identities.save(MappingFile.model_validate_json(result["final_mapping_json"]))
+            return result
 
     results: list[dict] = []
+    failures: list[dict] = []
     used_output_names: set[str] = set()
     total_rows = 0
     total_new = 0
     total_all = 0
 
-    for filename, content in files:
+    for index, (filename, content) in enumerate(files, start=1):
+        review_items = []
+        formula_count = 0
+        external_link_count = 0
         suffix = Path(filename).suffix.lower()
         output_suffix = suffix
 
-        if suffix == ".xlsx":
-            from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
+        try:
+            if preserve_calculations and suffix in {".docx", ".pdf"}:
+                raise IdentityReviewError("分析核验模式需要结构化表格，不支持 DOCX/PDF。")
+            if require_unique_people and suffix in {".docx", ".pdf"}:
+                raise IdentityReviewError("统一人员编号需要结构化表格，DOCX/PDF 请使用新编号模式。")
+            if suffix == ".xlsx":
+                from privacy_data_agent.workbook_anonymizer import anonymize_xlsx_bytes
 
-            wb_result = anonymize_xlsx_bytes(
-                content,
-                seed_mapping=accumulated,
-                header_row=header_row,
-                anonymize_job_title=anonymize_job_title,
-                anonymize_department=anonymize_department,
-                anonymize_salary=anonymize_salary,
-                keep_salary_groups=keep_salary_groups,
-            )
-            mapping = wb_result.mapping
-            row_count = wb_result.row_count
-            anonymized_bytes = wb_result.workbook_bytes
-            preview_csv = wb_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
-        elif suffix == ".docx":
-            from privacy_data_agent.document_anonymizer import anonymize_docx_bytes
+                wb_result = anonymize_xlsx_bytes(
+                    content,
+                    seed_mapping=accumulated,
+                    header_row=header_row,
+                    anonymize_job_title=anonymize_job_title,
+                    anonymize_department=anonymize_department,
+                    anonymize_salary=anonymize_salary,
+                    keep_salary_groups=keep_salary_groups,
+                    require_unique_people=require_unique_people,
+                    allow_unverified_people=allow_unverified_people,
+                    preserve_calculations=preserve_calculations,
+                )
+                mapping = wb_result.mapping
+                review_items = wb_result.review_items
+                formula_count = wb_result.formula_count
+                external_link_count = wb_result.external_link_count
+                row_count = wb_result.row_count
+                anonymized_bytes = wb_result.workbook_bytes
+                preview_csv = wb_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
+            elif suffix == ".docx":
+                from privacy_data_agent.document_anonymizer import anonymize_docx_bytes
 
-            doc_result = anonymize_docx_bytes(content, seed_mapping=accumulated)
-            mapping = doc_result.mapping
-            row_count = doc_result.row_count
-            anonymized_bytes = doc_result.workbook_bytes
-            preview_df = pd.DataFrame({"token": [e.token for e in mapping.entries]})
-            preview_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
-        elif suffix == ".pdf":
-            from privacy_data_agent.document_anonymizer import anonymize_pdf_bytes
+                doc_result = anonymize_docx_bytes(content, seed_mapping=accumulated)
+                mapping = doc_result.mapping
+                row_count = doc_result.row_count
+                anonymized_bytes = doc_result.workbook_bytes
+                preview_df = pd.DataFrame({"token": [e.token for e in mapping.entries]})
+                preview_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
+            elif suffix == ".pdf":
+                from privacy_data_agent.document_anonymizer import anonymize_pdf_bytes
 
-            pdf_result = anonymize_pdf_bytes(content, seed_mapping=accumulated)
-            mapping = pdf_result.mapping
-            row_count = pdf_result.row_count
-            anonymized_bytes = pdf_result.workbook_bytes
-            preview_df = pd.DataFrame({"token": [e.token for e in mapping.entries]})
-            preview_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
-        else:
-            df = read_uploaded_table(filename, content, header_row=header_row)
-            result = anonymize_dataframe(
-                df,
-                seed_mapping=accumulated,
-                anonymize_job_title=anonymize_job_title,
-                anonymize_department=anonymize_department,
-                anonymize_salary=anonymize_salary,
-                keep_salary_groups=keep_salary_groups,
-            )
-            mapping = result.mapping
-            row_count = len(result.dataframe)
-            preview_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
-            anonymized_bytes = dataframe_to_xlsx_bytes(result.dataframe)
-            output_suffix = ".xlsx"
+                pdf_result = anonymize_pdf_bytes(content, seed_mapping=accumulated)
+                mapping = pdf_result.mapping
+                row_count = pdf_result.row_count
+                anonymized_bytes = pdf_result.workbook_bytes
+                preview_df = pd.DataFrame({"token": [e.token for e in mapping.entries]})
+                preview_csv = preview_df.to_csv(index=False).encode("utf-8-sig")
+            else:
+                df = read_uploaded_table(filename, content, header_row=header_row)
+                result = anonymize_dataframe(
+                    df,
+                    seed_mapping=accumulated,
+                    anonymize_job_title=anonymize_job_title,
+                    anonymize_department=anonymize_department,
+                    anonymize_salary=anonymize_salary,
+                    keep_salary_groups=keep_salary_groups,
+                    require_unique_people=require_unique_people,
+                    allow_unverified_people=allow_unverified_people,
+                    preserve_calculations=preserve_calculations,
+                )
+                mapping = result.mapping
+                review_items = result.review_items
+                row_count = len(result.dataframe)
+                preview_csv = result.dataframe.to_csv(index=False).encode("utf-8-sig")
+                anonymized_bytes = dataframe_to_xlsx_bytes(result.dataframe)
+                output_suffix = ".xlsx"
+        except Exception as exc:
+            reason = str(exc) if isinstance(exc, IdentityReviewError) else f"无法处理文件（{type(exc).__name__}）。"
+            failures.append({"index": index, "name": filename, "reason": reason})
+            continue
 
         new_count = len(mapping.entries) - (len(accumulated.entries) if accumulated else 0)
         total_rows += row_count
@@ -536,6 +635,7 @@ def anonymize_batch(
         total_all = len(mapping.entries)
 
         mapping_json = mapping.model_dump_json(indent=2)
+        review_csv = _review_csv_bytes(review_items)
         download_name = _unique_output_name(Path(filename).stem, output_suffix, used_output_names)
 
         results.append({
@@ -549,12 +649,16 @@ def anonymize_batch(
             "anonymized_bytes": anonymized_bytes,
             "mapping_json": mapping_json,
             "mapping_table_csv": mapping_to_table_csv_bytes(mapping),
+            "review_count": len(review_items),
+            "review_csv": review_csv,
+            "formula_count": formula_count,
+            "external_link_count": external_link_count,
             "zip_bundle": (
                 create_encrypted_zip_bundle(
-                    Path(filename).stem, anonymized_bytes, mapping_json, output_suffix, encryption_key
+                    Path(filename).stem, anonymized_bytes, mapping_json, output_suffix, encryption_key, review_csv=review_csv,
                 )
                 if encryption_key
-                else create_zip_bundle(Path(filename).stem, anonymized_bytes, mapping_json, output_suffix)
+                else create_zip_bundle(Path(filename).stem, anonymized_bytes, mapping_json, output_suffix, review_csv=review_csv)
             ),
             "encrypted_mapping_json": (
                 encrypt_mapping_json(mapping_json, encryption_key) if encryption_key else None
@@ -575,6 +679,8 @@ def anonymize_batch(
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for r in results:
             zf.writestr(r["download_name"], r["anonymized_bytes"])
+            if r["review_csv"]:
+                zf.writestr(Path(r["download_name"]).stem + "_identity_review.csv", r["review_csv"])
         mapping_bytes = (
             encrypt_mapping_json(final_mapping_json, encryption_key)
             if encryption_key
@@ -591,13 +697,18 @@ def anonymize_batch(
     consolidated_zip = buf.getvalue()
 
     return {
-        "files_processed": len(files),
+        "files_processed": len(results),
+        "failures": failures,
         "total_rows": total_rows,
         "total_new_entities": total_new,
         "total_entities": total_all,
         "final_mapping_json": final_mapping_json,
         "consolidated_zip": consolidated_zip,
         "results": results,
+        "review_count": sum(result["review_count"] for result in results),
+        "formula_count": sum(result["formula_count"] for result in results),
+        "external_link_count": sum(result["external_link_count"] for result in results),
+        "preserve_calculations": preserve_calculations,
     }
 
 

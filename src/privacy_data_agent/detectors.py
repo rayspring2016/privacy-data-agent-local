@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from numbers import Number
 from enum import StrEnum
 
 from privacy_data_agent.models import EntityType
@@ -107,9 +108,16 @@ JOB_TITLE_COLUMN_HINTS = (
 )
 JOB_TITLE_EXCLUDED_HINTS = ("补贴", "工资", "薪资", "薪酬", "奖金", "收入")
 PASS_THROUGH_COLUMN_HINTS = (
+    "客户类型",
+    "客户标签",
+    "客户需要合同",
+    "客户拜访",
+    "客户/销售类型",
     "离职原因",
     "离职类型",
     "离职性质",
+    "人员状态",
+    "员工状态",
     "离职状态",
     "离职备注",
     "离职说明",
@@ -342,12 +350,39 @@ def detect_weak_person_column(column_name: str) -> bool:
     return any(hint in normalized for hint in WEAK_PERSON_COLUMN_HINTS)
 
 
+EMPLOYEE_ID_HEADERS = frozenset({
+    "工号", "员工工号", "员工号", "员工编号", "工作编号", "人员工号", "人员编号",
+    "销售工号", "销售员工号", "销售人员工号", "staff_id", "emp_id",
+    "employee_id", "employee_no", "work_id", "badge",
+})
+EMPLOYEE_EMAIL_HEADERS = frozenset({
+    "邮箱", "电子邮件", "员工邮箱", "员工电子邮件", "公司邮箱", "工作邮箱",
+    "企业邮箱", "办公邮箱", "email", "e-mail", "employee_email", "staff_email", "work_email",
+})
+
+
 def detect_column_entity_type(column_name: str) -> EntityType | None:
     normalized = _normalize_column_name(column_name)
+    if normalized in {"客户类型", "客户标签", "客户需要合同", "客户/销售类型"} or normalized.startswith("客户拜访"):
+        return None
+    if re.fullmatch(r"单位\s*[：:]\s*(?:人民币)?万?元", normalized):
+        return None
+    if normalized in {"人员状态", "员工状态"}:
+        return None
+    if normalized in {"销售"}:
+        return EntityType.EMPLOYEE
+    if normalized in EMPLOYEE_EMAIL_HEADERS or normalized.endswith(("邮箱", "电子邮件", "_email")):
+        return EntityType.EMAIL
+    # 明确的员工标识优先于“员工 / employee”姓名关键词，确保跨表映射一致。
+    if any(hint in normalized for hint in (
+        "工号", "员工号", "员工编号", "工作编号", "staff_id", "emp_id",
+        "employee_id", "employee_no", "work_id", "badge",
+    )):
+        return EntityType.EMPLOYEE_ID
     if any(
         hint in normalized
         for hint in ("所属部门", "部门名称", "所属组织", "组织名称")
-    ):
+    ) or normalized.endswith(("团队", "组别", "部门")):
         return EntityType.DEPARTMENT
     if _looks_like_person_column(normalized):
         return EntityType.EMPLOYEE
@@ -428,6 +463,11 @@ def _normalize_column_name(column_name: str) -> str:
 def _looks_like_person_column(normalized_column_name: str) -> bool:
     if any(excluded in normalized_column_name for excluded in NON_PERSON_REN_COLUMNS):
         return False
+    if normalized_column_name in {
+        "leader", "sdr", "核算商务", "核算主管", "核算区总", "国内b端销售",
+        "国际业务销售", "会员成功", "会员ka",
+    } or normalized_column_name.endswith(("销售经理", "区域经理")):
+        return True
     return normalized_column_name.endswith("人")
 
 
@@ -823,3 +863,20 @@ def detect_cell_entity_type(
                 continue
             return entity_type
     return None
+
+
+def preserve_analysis_number(value, column_name: str) -> bool:
+    """Keep calculation inputs while continuing to mask numeric identifiers."""
+    name = column_name.strip().lower()
+    kind = detect_column_entity_type(column_name)
+    if kind in {EntityType.EMPLOYEE_ID, EntityType.ID_NUMBER, EntityType.PHONE, EntityType.EMAIL, EntityType.LICENSE_PLATE}:
+        return False
+    if name in {"姓名", "员工姓名", "人员姓名", "销售姓名", "员工", "销售", "employee_name", "name",
+                "客户", "客户名称", "客户名", "公司", "公司名称", "单位名称", "企业名称"}:
+        return False
+    if any(term in name for term in ("客户编号", "客户代码", "customer_id", "账号", "账户", "卡号")):
+        return False
+    financial = any(term in name for term in ("金额", "提成", "佣金", "业绩", "回款", "比例", "系数", "单价", "毛利", "成本", "收入", "支出", "费用", "工资", "薪资", "薪酬", "奖金", "补贴", "率"))
+    if isinstance(value, Number):
+        return financial or detect_high_confidence_cell_entity_type(str(value)) not in {EntityType.PHONE, EntityType.ID_NUMBER}
+    return financial and isinstance(value, str) and bool(re.fullmatch(r"\s*[￥¥$]?\s*[+-]?[\d,]+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*%?\s*", value))

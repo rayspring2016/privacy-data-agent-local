@@ -71,16 +71,32 @@ def _restore_xlsx(content: bytes, mapping: MappingFile) -> bytes:
     from openpyxl import load_workbook
 
     workbook = load_workbook(BytesIO(content))
-    for worksheet in workbook.worksheets:
+    preserve = workbook.calculation is not None and workbook.calculation.calcMode == "manual"
+    cached = load_workbook(BytesIO(content), data_only=True, read_only=True) if preserve else None
+    formulas = {}
+    for number, worksheet in enumerate(workbook.worksheets):
+        cache_rows = iter(cached.worksheets[number].iter_rows(values_only=True)) if cached else None
         for row in worksheet.iter_rows():
+            values = next(cache_rows) if cache_rows else None
             for cell in row:
                 if isinstance(cell.value, str):
                     replaced = _replace_all(cell.value, mapping)
-                    if replaced != cell.value:
+                    if preserve and cell.data_type == "f":
+                        formulas.setdefault(worksheet.title, {})[cell.coordinate] = replaced
+                        value = values[cell.column - 1]
+                        cell.value = _replace_all(value, mapping) if isinstance(value, str) else value
+                        if cell.data_type == "f":
+                            cell.data_type = "s"
+                    elif replaced != cell.value:
                         cell.value = replaced
 
     buf = BytesIO()
     workbook.save(buf)
+    if cached:
+        cached.close()
+        from privacy_data_agent.workbook_anonymizer import _restore_formulas
+
+        return _restore_formulas(buf.getvalue(), formulas)
     return buf.getvalue()
 
 

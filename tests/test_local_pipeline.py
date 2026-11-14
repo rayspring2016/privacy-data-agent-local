@@ -63,6 +63,8 @@ def test_local_anonymize_records_flag_state_in_manifest(tmp_path):
         "anonymize_department": True,
         "anonymize_salary": True,
         "kept_salary_groups": ["labor_cost"],
+        "allow_unverified_people": False,
+        "preserve_calculations": False,
     }
 
 

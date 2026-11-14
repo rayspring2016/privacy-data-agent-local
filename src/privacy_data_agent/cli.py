@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
 import typer
 
 from privacy_data_agent.aggregator import aggregate_file
 from privacy_data_agent.detectors import SalaryGroup
+from privacy_data_agent.identity_store import UnifiedIdentityStore
 from privacy_data_agent.llm_client import FakeModelProvider, OpenAIModelProvider
 from privacy_data_agent.local_pipeline import anonymize_directory, anonymize_file, restore_report_file
 from privacy_data_agent.mapping_store import load_local_mapping
@@ -39,17 +41,27 @@ def anonymize(
         None, "--mapping", "-m", exists=True, readable=True, dir_okay=False,
         help="导入已有明文 JSON/CSV 匹配文件，保持跨文件、跨月份编号一致。",
     ),
+    consistent_ids: bool = typer.Option(
+        False, "--consistent-ids", help="使用本机统一编号库，跨月份、跨项目自动沿用编号。",
+    ),
+    allow_unverified_people: bool = typer.Option(
+        False, "--allow-unverified-people", help="统一模式中身份不明的姓名继续脱敏，按位置生成 PDA_REVIEW_ 临时编号和核验清单；临时编号不用于跨项目合并。",
+    ),
+    preserve_calculations: bool = typer.Option(False, "--preserve-calculations", help="分析核验版：保留业务数值，保留 XLSX 原公式与已保存结果（手动计算）；工号、证件等标识仍脱敏。"),
 ) -> None:
     # docx/pdf 处理时列语义会被拍平（docx 整篇拍成单列 "text"，pdf 目前完全
     # 不支持——见 TODOS.md），这四个开关对这两种格式从不生效。与其让用户以为
     # 开关生效了、实际静默无效，不如在这里直接拒绝，把静默无效变成明确报错。
     suffix = input_path.suffix.lower()
+    if consistent_ids and suffix in (".docx", ".pdf") and input_path.is_file():
+        typer.echo("统一人员编号需要结构化表格，DOCX/PDF 请使用新编号模式。")
+        raise typer.Exit(code=1)
     if suffix in (".docx", ".pdf") and (
-        anonymize_job_title or not anonymize_department or not anonymize_salary or keep_salary_group
+        anonymize_job_title or not anonymize_department or not anonymize_salary or keep_salary_group or preserve_calculations
     ):
         typer.echo(
             f"该格式（{suffix}）不支持 --anonymize-job-title / --no-anonymize-department / "
-            "--no-anonymize-salary / --keep-salary-group 开关：docx 处理时列名语义会被拍平，pdf 暂不支持任何开关。"
+            "--no-anonymize-salary / --keep-salary-group / --preserve-calculations 开关：docx 处理时列名语义会被拍平，pdf 暂不支持任何开关。"
             "请去掉这些开关重新运行，或改用 xlsx/csv。"
         )
         raise typer.Exit(code=1)
@@ -71,14 +83,31 @@ def anonymize(
         "anonymize_salary": anonymize_salary,
         "keep_salary_groups": frozenset(keep_salary_group),
         "seed_mapping": seed_mapping,
+        "allow_unverified_people": allow_unverified_people,
+        "preserve_calculations": preserve_calculations,
     }
-    if input_path.is_dir():
-        try:
-            batch = anonymize_directory(**options)
-        except (ValueError, OSError) as exc:
-            typer.echo(str(exc))
-            raise typer.Exit(code=1) from exc
+    is_directory = input_path.is_dir()
+    try:
+        with UnifiedIdentityStore(seed_mapping) if consistent_ids else nullcontext(None) as identities:
+            if identities is not None:
+                options["seed_mapping"] = identities.mapping
+                options["require_unique_people"] = True
+            processor = anonymize_directory if is_directory else anonymize_file
+            artifacts = processor(**options)
+            if identities is not None:
+                identities.save(load_local_mapping(artifacts.mapping_json_path))
+                typer.echo(f"统一编号库：{identities.path}")
+    except (ValueError, OSError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    if is_directory:
+        batch = artifacts
+        if preserve_calculations:
+            typer.echo(f"分析核验版：保留业务数值，{batch.formula_count} 个公式和原计算结果已保留，工作簿设为手动计算。")
         typer.echo(f"批量处理：成功 {batch.success_count}，失败 {batch.failure_count}")
+        if batch.review_count:
+            typer.echo(f"另有 {batch.review_count} 个人员项使用待核验临时编号，不用于跨项目合并；核验清单位于各文件输出目录。")
         typer.echo(f"处理记录：{batch.manifest_path}")
         typer.echo(f"完整映射：{batch.mapping_json_path}")
         typer.echo("映射及处理记录仅限本地保存；只分享 files 下的 anonymized 数据文件。")
@@ -86,10 +115,13 @@ def anonymize(
             raise typer.Exit(code=1)
         return
 
-    artifacts = anonymize_file(**options)
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")
+    if preserve_calculations:
+        typer.echo(f"分析核验版：保留业务数值，{artifacts.formula_count} 个公式和原计算结果已保留，工作簿设为手动计算。")
+    if artifacts.review_count:
+        typer.echo(f"待核验临时编号：{artifacts.review_count} 个，不用于跨项目人员合并。清单：{artifacts.review_path}")
     typer.echo("Keep mapping files local. They contain original sensitive values.")
 
 

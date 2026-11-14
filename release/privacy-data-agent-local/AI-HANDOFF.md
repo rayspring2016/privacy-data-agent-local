@@ -30,11 +30,23 @@ Streamlit startup is configured to avoid the onboarding email prompt and hide th
 
 - `.streamlit/config.toml` sets `browser.gatherUsageStats = false` and `client.toolbarMode = "viewer"`.
 - `mac/03-launch-web-ui-mac.command` and `windows/03-launch-web-ui-windows.bat` also pass `--browser.gatherUsageStats false --client.toolbarMode viewer`.
+- The release package contains the same config and launch script changes.
 
-## Validation
+## Release Notes For AI Agents
 
-Run:
+When changing anonymization behavior, update both:
+
+- Source files under `src/privacy_data_agent/`
+- Release copy under `release/privacy-data-agent-local/src/privacy_data_agent/`
+
+After source changes, run:
 
 ```bash
 .venv/bin/python -m pytest
+```
+
+Then rebuild the distributable from `release/`:
+
+```bash
+zip -r privacy-data-agent-local.zip privacy-data-agent-local
 ```

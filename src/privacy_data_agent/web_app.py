@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from privacy_data_agent import __version__
 from privacy_data_agent.aggregator import aggregate_dataframe
 from privacy_data_agent.detectors import SalaryGroup
 from privacy_data_agent.web_helpers import anonymize_upload, read_uploaded_table, restore_report_upload
@@ -17,7 +18,7 @@ SALARY_GROUP_LABELS: dict[SalaryGroup, str] = {
     SalaryGroup.PERFORMANCE_PAY: "绩效工资/奖金",
 }
 
-VERSION = "1.15.0"
+VERSION = __version__
 
 _DARK_THEME_CSS = """<style>
 :root {
@@ -657,6 +658,9 @@ def render_anonymize() -> None:
         ("anonymize_file", None),
         ("anonymize_files", []),       # v1.11.0: multi-file batch list
         ("seed_file", None),
+        ("identity_mode", "统一编号（跨月份、跨项目）"),
+        ("allow_unverified_people", True),
+        ("preserve_calculations", False),
         ("header_mode", "自动检测"),
         ("custom_header_row", 1),
         ("anonymize_job_title", False),
@@ -715,6 +719,9 @@ def render_anonymize() -> None:
                         anonymize_department=st.session_state.anonymize_department,
                         anonymize_salary=st.session_state.anonymize_salary,
                         keep_salary_groups=frozenset(st.session_state.keep_salary_group),
+                        consistent_ids=st.session_state.identity_mode == "统一编号（跨月份、跨项目）",
+                        allow_unverified_people=st.session_state.allow_unverified_people,
+                        preserve_calculations=st.session_state.preserve_calculations,
                     )
                     st.session_state.anonymize_batch_result = batch_result
                     st.session_state.processing = False
@@ -732,6 +739,9 @@ def render_anonymize() -> None:
                         anonymize_department=st.session_state.anonymize_department,
                         anonymize_salary=st.session_state.anonymize_salary,
                         keep_salary_groups=frozenset(st.session_state.keep_salary_group),
+                        consistent_ids=st.session_state.identity_mode == "统一编号（跨月份、跨项目）",
+                        allow_unverified_people=st.session_state.allow_unverified_people,
+                        preserve_calculations=st.session_state.preserve_calculations,
                     )
                     st.session_state.anonymize_result = result
                     st.session_state.processing = False
@@ -748,10 +758,22 @@ def render_anonymize() -> None:
         # v1.11.0: batch result display
         if has_batch_result:
             batch = st.session_state.anonymize_batch_result
-            st.success(
-                f"批量脱敏完成：处理 {batch['files_processed']} 个文件，"
-                f"共 {batch['total_rows']} 行，新增 {batch['total_new_entities']} 个实体。"
-            )
+            if batch.get("preserve_calculations"):
+                st.caption(f"分析核验版：保留业务数值，{batch['formula_count']} 个公式和原计算结果已保留，工作簿设为手动计算。")
+            if batch.get("external_link_count"):
+                st.caption("外部引用结构已保留，外部缓存和真实文件路径已移除；来源内容请在原表核对。")
+            failures = batch["failures"]
+            if batch.get("review_count"):
+                st.warning(f"有 {batch['review_count']} 个人员项使用待核验临时编号（PDA_REVIEW_），请勿用于跨项目人员合并；各文件的核验清单已放入下载包。")
+            if failures:
+                st.warning(f"成功处理 {batch['files_processed']} 个文件，另有 {len(failures)} 个文件待核验或处理失败。")
+                for item in failures:
+                    st.text(f"第 {item['index']} 个文件 {item['name']}：{item['reason']}")
+            else:
+                st.success(
+                    f"批量脱敏完成：处理 {batch['files_processed']} 个文件，"
+                    f"共 {batch['total_rows']} 行，新增 {batch['total_new_entities']} 个实体。"
+                )
             st.markdown(
                 f"""
                 <div class="pda-stats">
@@ -790,6 +812,7 @@ def render_anonymize() -> None:
                     use_container_width=True,
                     type="primary",
                     key="download_batch_zip",
+                    disabled=not batch["files_processed"],
                 )
             with col2:
                 st.button(
@@ -833,6 +856,13 @@ def render_anonymize() -> None:
         else:
             # Single-file result (existing code)
             result = st.session_state.anonymize_result
+            if result.get("preserve_calculations"):
+                st.caption(f"分析核验版：保留业务数值，{result['formula_count']} 个公式和原计算结果已保留，工作簿设为手动计算。")
+            if result.get("external_link_count"):
+                st.caption("外部引用结构已保留，外部缓存和真实文件路径已移除；来源内容请在原表核对。")
+            if result.get("review_count"):
+                st.warning(f"有 {result['review_count']} 个人员项使用待核验临时编号（PDA_REVIEW_），请勿用于跨项目人员合并。")
+                st.download_button("下载待核验清单", data=result["review_csv"], file_name="identity_review.csv", mime="text/csv")
             new_count = result["new_entity_count"]
             total_count = result["entity_count"]
 
@@ -973,6 +1003,23 @@ def render_anonymize() -> None:
     st.markdown("### 第一步：选择需要脱敏的文件")
     st.caption("支持单文件或多文件批量处理，多文件将自动累积匹配结果。")
 
+    st.radio(
+        "编号方式",
+        ["统一编号（跨月份、跨项目）", "每次生成新编号"],
+        key="identity_mode",
+        horizontal=True,
+    )
+    if st.session_state.identity_mode == "统一编号（跨月份、跨项目）":
+        st.caption("提成、薪资、考勤共用本机统一映射，重启后继续沿用。先从各 sheet 的工号/邮箱建人员基准，再用姓名和部门唯一匹配；重名无法区分时转待核验。")
+        st.checkbox("身份不明时继续脱敏，并标记待核验", key="allow_unverified_people", help="已确认人员沿用统一编号；未确认姓名按出现位置分别生成 PDA_REVIEW_ 临时编号，不进入统一人员库，也不能用于跨项目人员合并。取消勾选后，身份不明会停止该文件。工号或邮箱冲突始终停止处理。")
+    else:
+        st.caption("不读取或更新统一编号库；如导入历史映射，则仅沿用该文件中的编号。")
+
+    st.checkbox("核验模式（保留数值和原公式）", key="preserve_calculations",
+                help="用于提成、薪资和人效核验。保留金额、比例、系数等业务数值，保留 XLSX 原公式及原计算结果；姓名、工号、客户名称等仍脱敏。输出为手动计算的核验工作簿，身份条件可能被替换；重新计算请在原表核对身份后完成。")
+    if st.session_state.preserve_calculations:
+        st.caption("此模式保留薪资和提成金额。原表应先在 Excel 中完成计算并保存；输出用于分析核验。")
+
     uploaded_files = st.file_uploader(
         "拖拽或点击上传文件（Excel、CSV、Numbers、WPS、DOCX、PDF）",
         type=["csv", "xlsx", "numbers", "et", "docx", "pdf"],
@@ -1048,9 +1095,9 @@ def render_anonymize() -> None:
 
         st.markdown("### 第三步：配置处理选项（可选）")
 
-        with st.expander("同一批次追加文件？上传已有匹配文件（可选）", expanded=False):
+        with st.expander("导入历史编号 / 追加已有匹配文件（可选）", expanded=False):
             st.markdown(
-                "<p>如需在同一批次追加处理相同数据，上传已有的匹配文件。这样新出现的相同实体将沿用之前的匹配结果，保持一致性。</p>",
+                "<p>统一编号模式下可首次导入旧匹配文件，之后各月份、各项目自动沿用。若旧文件与统一库存在编号冲突，程序会报错，不会覆盖；新编号模式下仅本次使用此文件。</p>",
                 unsafe_allow_html=True,
             )
             seed_file = st.file_uploader(
@@ -1099,31 +1146,34 @@ def render_anonymize() -> None:
                 key="anonymize_department",
                 help="默认脱敏。关闭后，部门名称列将保留原值，不替换为 token。",
             )
-            st.checkbox(
-                "脱敏薪酬 / 薪资数据",
-                value=st.session_state.anonymize_salary,
-                key="anonymize_salary",
-                help="默认脱敏。关闭后，所有薪资/薪酬相关列将保留原值，不替换为 token（类似于部门名称）。",
-            )
-            st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
-
-            if st.session_state.anonymize_salary:
-                st.markdown("**放开哪些薪资子组（默认全部脱敏）**")
-                st.caption(
-                    "只勾选你确实要发给 AI/外部看的组。比如只想让 AI 看到「人力成本」做人效分析，"
-                    "个人薪酬、绩效奖金这些不勾——保持脱敏。"
-                )
-                selected_labels = st.multiselect(
-                    "放开的薪资组",
-                    options=list(SALARY_GROUP_LABELS.values()),
-                    default=[SALARY_GROUP_LABELS[g] for g in st.session_state.keep_salary_group],
-                    key="keep_salary_group_select",
-                    label_visibility="collapsed",
-                )
-                label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
-                st.session_state.keep_salary_group = [label_to_group[label] for label in selected_labels]
+            if st.session_state.preserve_calculations:
+                st.caption("分析核验模式保留业务数值；薪资脱敏和薪资类别选项适用于通用模式。")
             else:
-                st.caption("💡 当前已关闭薪资脱敏，所有薪酬/薪资列均将保留明文。")
+                st.checkbox(
+                    "脱敏薪酬 / 薪资数据",
+                    value=st.session_state.anonymize_salary,
+                    key="anonymize_salary",
+                    help="默认脱敏。关闭后，所有薪资/薪酬相关列将保留原值，不替换为 token（类似于部门名称）。",
+                )
+                st.caption("离职原因、离职类型、状态等业务判断列默认保留，不参与姓名/部门类弱规则扫描。")
+
+                if st.session_state.anonymize_salary:
+                    st.markdown("**放开哪些薪资子组（默认全部脱敏）**")
+                    st.caption(
+                        "只勾选你确实要发给 AI/外部看的组。比如只想让 AI 看到「人力成本」做人效分析，"
+                        "个人薪酬、绩效奖金这些不勾——保持脱敏。"
+                    )
+                    selected_labels = st.multiselect(
+                        "放开的薪资组",
+                        options=list(SALARY_GROUP_LABELS.values()),
+                        default=[SALARY_GROUP_LABELS[g] for g in st.session_state.keep_salary_group],
+                        key="keep_salary_group_select",
+                        label_visibility="collapsed",
+                    )
+                    label_to_group = {v: k for k, v in SALARY_GROUP_LABELS.items()}
+                    st.session_state.keep_salary_group = [label_to_group[label] for label in selected_labels]
+                else:
+                    st.caption("💡 当前已关闭薪资脱敏，所有薪酬/薪资列均将保留明文。")
 
         table_suffixes = {Path(f.name).suffix.lower() for f in st.session_state.anonymize_files}
         has_table_file = bool(table_suffixes & {".xlsx", ".csv", ".numbers", ".et"})

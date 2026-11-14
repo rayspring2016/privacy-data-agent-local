@@ -29,7 +29,7 @@ def read_input_table(input_path: str | Path, header_row: int | None = None) -> p
 def _read_csv(path: Path, header_row: int | None) -> pd.DataFrame:
     if header_row is None:
         header_row = _detect_csv_header_row(path)
-    return pd.read_csv(path, header=max(0, header_row - 1))
+    return pd.read_csv(path, header=max(0, header_row - 1), dtype=object)
 
 
 def _detect_csv_header_row(path: Path) -> int:

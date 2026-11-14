@@ -1086,7 +1086,7 @@ wheels = [
 
 [[package]]
 name = "privacy-data-agent"
-version = "1.14.1"
+version = "1.15.1"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },

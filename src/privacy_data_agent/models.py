@@ -26,11 +26,21 @@ class MappingEntry(BaseModel):
     entity_type: EntityType
     original: str
     token: str
+    identity_key: str | None = None
+
+
+class EmployeeIdentity(BaseModel):
+    key: str
+    employee_id: str
+    emails: list[str] = Field(default_factory=list)
+    id_numbers: list[str] = Field(default_factory=list)
+    aliases: list[tuple[str, str]] = Field(default_factory=list)
 
 
 class MappingFile(BaseModel):
     version: int = 1
     entries: list[MappingEntry] = Field(default_factory=list)
+    people: list[EmployeeIdentity] = Field(default_factory=list)
 
 
 class RunArtifacts(BaseModel):
