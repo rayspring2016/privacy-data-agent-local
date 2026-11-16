@@ -10,6 +10,7 @@ class EntityType(StrEnum):
     EMPLOYEE = "employee"
     ID_NUMBER = "id_number"
     EMPLOYEE_ID = "employee_id"
+    BANK_ACCOUNT = "bank_account"
     DEPARTMENT = "department"
     CUSTOMER = "customer"
     PHONE = "phone"

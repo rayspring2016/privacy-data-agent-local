@@ -349,6 +349,8 @@ def anonymize_upload(
     review_items = []
     formula_count = 0
     external_link_count = 0
+    localized_external_formula_count = 0
+    external_value_count = 0
     suffix = Path(filename).suffix.lower()
     if suffix == ".xlsx":
         workbook_result = anonymize_xlsx_bytes(
@@ -367,6 +369,8 @@ def anonymize_upload(
         review_items = workbook_result.review_items
         formula_count = workbook_result.formula_count
         external_link_count = workbook_result.external_link_count
+        localized_external_formula_count = workbook_result.localized_external_formula_count
+        external_value_count = workbook_result.external_value_count
         row_count = workbook_result.row_count
         anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
         anonymized_xlsx = workbook_result.workbook_bytes
@@ -397,6 +401,8 @@ def anonymize_upload(
             review_items = workbook_result.review_items
             formula_count = workbook_result.formula_count
             external_link_count = workbook_result.external_link_count
+            localized_external_formula_count = workbook_result.localized_external_formula_count
+            external_value_count = workbook_result.external_value_count
             row_count = workbook_result.row_count
             anonymized_csv = workbook_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
             anonymized_xlsx = workbook_result.workbook_bytes
@@ -478,6 +484,8 @@ def anonymize_upload(
         "review_csv": review_csv,
         "formula_count": formula_count,
         "external_link_count": external_link_count,
+        "localized_external_formula_count": localized_external_formula_count,
+        "external_value_count": external_value_count,
         "preserve_calculations": preserve_calculations,
     }
 
@@ -557,6 +565,8 @@ def anonymize_batch(
         review_items = []
         formula_count = 0
         external_link_count = 0
+        localized_external_formula_count = 0
+        external_value_count = 0
         suffix = Path(filename).suffix.lower()
         output_suffix = suffix
 
@@ -584,6 +594,8 @@ def anonymize_batch(
                 review_items = wb_result.review_items
                 formula_count = wb_result.formula_count
                 external_link_count = wb_result.external_link_count
+                localized_external_formula_count = wb_result.localized_external_formula_count
+                external_value_count = wb_result.external_value_count
                 row_count = wb_result.row_count
                 anonymized_bytes = wb_result.workbook_bytes
                 preview_csv = wb_result.preview_dataframe.to_csv(index=False).encode("utf-8-sig")
@@ -653,6 +665,8 @@ def anonymize_batch(
             "review_csv": review_csv,
             "formula_count": formula_count,
             "external_link_count": external_link_count,
+            "localized_external_formula_count": localized_external_formula_count,
+            "external_value_count": external_value_count,
             "zip_bundle": (
                 create_encrypted_zip_bundle(
                     Path(filename).stem, anonymized_bytes, mapping_json, output_suffix, encryption_key, review_csv=review_csv,
@@ -708,6 +722,8 @@ def anonymize_batch(
         "review_count": sum(result["review_count"] for result in results),
         "formula_count": sum(result["formula_count"] for result in results),
         "external_link_count": sum(result["external_link_count"] for result in results),
+        "localized_external_formula_count": sum(result["localized_external_formula_count"] for result in results),
+        "external_value_count": sum(result["external_value_count"] for result in results),
         "preserve_calculations": preserve_calculations,
     }
 

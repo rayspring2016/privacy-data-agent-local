@@ -28,6 +28,8 @@ class LocalAnonymizeArtifacts(BaseModel):
     review_path: Path | None = None
     formula_count: int = 0
     external_link_count: int = 0
+    localized_external_formula_count: int = 0
+    external_value_count: int = 0
 
 
 class LocalRestoreArtifacts(BaseModel):
@@ -39,6 +41,7 @@ class LocalBatchAnonymizeArtifacts(BaseModel):
     mapping_json_path: Path
     success_count: int
     failure_count: int
+    external_value_count: int = 0
     review_count: int = 0
     formula_count: int = 0
 
@@ -92,6 +95,8 @@ def anonymize_file(
         review_items = anonymized_workbook.review_items
         artifacts.formula_count = anonymized_workbook.formula_count
         artifacts.external_link_count = anonymized_workbook.external_link_count
+        artifacts.localized_external_formula_count = anonymized_workbook.localized_external_formula_count
+        artifacts.external_value_count = anonymized_workbook.external_value_count
     else:
         source_df = read_input_table(input_file, header_row=header_row)
         anonymized = anonymize_dataframe(
@@ -131,6 +136,8 @@ def anonymize_file(
                 "review_count": artifacts.review_count,
                 "formula_count": artifacts.formula_count,
                 "external_link_count": artifacts.external_link_count,
+                "localized_external_formula_count": artifacts.localized_external_formula_count,
+                "external_value_count": artifacts.external_value_count,
                 "review_path": str(artifacts.review_path) if artifacts.review_path else None,
                 # 主动降低脱敏强度的动作最该留痕：半年后拿到这份 anonymized
                 # 文件，得能查出当初到底放开了哪些。region 不记，因为它从未
@@ -213,6 +220,8 @@ def anonymize_directory(
                 review_count=artifacts.review_count,
                 formula_count=artifacts.formula_count,
                 external_link_count=artifacts.external_link_count,
+                localized_external_formula_count=artifacts.localized_external_formula_count,
+                external_value_count=artifacts.external_value_count,
             )
         records.append(record)
 
@@ -248,6 +257,7 @@ def anonymize_directory(
         failure_count=len(records) - success_count,
         review_count=sum(record.get("review_count", 0) for record in records),
         formula_count=sum(record.get("formula_count", 0) for record in records),
+        external_value_count=sum(record.get("external_value_count", 0) for record in records),
     )
 
 

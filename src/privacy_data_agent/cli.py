@@ -105,6 +105,8 @@ def anonymize(
         batch = artifacts
         if preserve_calculations:
             typer.echo(f"分析核验版：保留业务数值，{batch.formula_count} 个公式和原计算结果已保留，工作簿设为手动计算。")
+        if batch.external_value_count:
+            typer.echo(f"外部属性：{batch.external_value_count} 处已取保存结果，并按字段设置脱敏。")
         typer.echo(f"批量处理：成功 {batch.success_count}，失败 {batch.failure_count}")
         if batch.review_count:
             typer.echo(f"另有 {batch.review_count} 个人员项使用待核验临时编号，不用于跨项目合并；核验清单位于各文件输出目录。")
@@ -115,6 +117,8 @@ def anonymize(
             raise typer.Exit(code=1)
         return
 
+    if artifacts.external_value_count:
+        typer.echo(f"外部属性：{artifacts.external_value_count} 处已取保存结果，并按字段设置脱敏。")
     typer.echo(f"Anonymized data: {artifacts.anonymized_data_path}")
     typer.echo(f"Mapping JSON: {artifacts.mapping_json_path}")
     typer.echo(f"Mapping table: {artifacts.mapping_table_path}")

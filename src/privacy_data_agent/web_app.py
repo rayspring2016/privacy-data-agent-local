@@ -760,8 +760,12 @@ def render_anonymize() -> None:
             batch = st.session_state.anonymize_batch_result
             if batch.get("preserve_calculations"):
                 st.caption(f"分析核验版：保留业务数值，{batch['formula_count']} 个公式和原计算结果已保留，工作簿设为手动计算。")
+            if batch.get("external_value_count"):
+                st.caption(f"已将 {batch['external_value_count']} 处外部属性转为保存结果，并按字段设置脱敏；这些值代表原文件保存时的数据。")
+            if batch.get("localized_external_formula_count"):
+                st.caption(f"已将 {batch['localized_external_formula_count']} 处外部查找改为本地脱敏缓存快照，可离线计算；快照代表原文件保存时的数据。")
             if batch.get("external_link_count"):
-                st.caption("外部引用结构已保留，外部缓存和真实文件路径已移除；来源内容请在原表核对。")
+                st.caption("仍有外部引用无法从保存缓存转为本地查找；其真实路径和外部缓存已移除，重算需要补齐来源文件。")
             failures = batch["failures"]
             if batch.get("review_count"):
                 st.warning(f"有 {batch['review_count']} 个人员项使用待核验临时编号（PDA_REVIEW_），请勿用于跨项目人员合并；各文件的核验清单已放入下载包。")
@@ -858,8 +862,12 @@ def render_anonymize() -> None:
             result = st.session_state.anonymize_result
             if result.get("preserve_calculations"):
                 st.caption(f"分析核验版：保留业务数值，{result['formula_count']} 个公式和原计算结果已保留，工作簿设为手动计算。")
+            if result.get("external_value_count"):
+                st.caption(f"已将 {result['external_value_count']} 处外部属性转为保存结果，并按字段设置脱敏；这些值代表原文件保存时的数据。")
+            if result.get("localized_external_formula_count"):
+                st.caption(f"已将 {result['localized_external_formula_count']} 处外部查找改为本地脱敏缓存快照，可离线计算；快照代表原文件保存时的数据。")
             if result.get("external_link_count"):
-                st.caption("外部引用结构已保留，外部缓存和真实文件路径已移除；来源内容请在原表核对。")
+                st.caption("仍有外部引用无法从保存缓存转为本地查找；其真实路径和外部缓存已移除，重算需要补齐来源文件。")
             if result.get("review_count"):
                 st.warning(f"有 {result['review_count']} 个人员项使用待核验临时编号（PDA_REVIEW_），请勿用于跨项目人员合并。")
                 st.download_button("下载待核验清单", data=result["review_csv"], file_name="identity_review.csv", mime="text/csv")
@@ -1016,7 +1024,7 @@ def render_anonymize() -> None:
         st.caption("不读取或更新统一编号库；如导入历史映射，则仅沿用该文件中的编号。")
 
     st.checkbox("核验模式（保留数值和原公式）", key="preserve_calculations",
-                help="用于提成、薪资和人效核验。保留金额、比例、系数等业务数值，保留 XLSX 原公式及原计算结果；姓名、工号、客户名称等仍脱敏。输出为手动计算的核验工作簿，身份条件可能被替换；重新计算请在原表核对身份后完成。")
+                help="用于提成、薪资和人效核验。保留金额、比例、系数等业务数值，保留 XLSX 原公式及原计算结果；姓名、工号、工资卡号、客户名称等仍脱敏。外部人员属性取保存结果；内部精确 VLOOKUP 查找键同步处理。输出为手动计算的核验工作簿，身份条件可能被替换；重新计算请在原表核对身份后完成。")
     if st.session_state.preserve_calculations:
         st.caption("此模式保留薪资和提成金额。原表应先在 Excel 中完成计算并保存；输出用于分析核验。")
 

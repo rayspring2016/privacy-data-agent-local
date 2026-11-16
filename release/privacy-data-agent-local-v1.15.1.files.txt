@@ -33,3 +33,5 @@ privacy-data-agent-local/src/privacy_data_agent/text_anonymizer.py
 privacy-data-agent-local/src/privacy_data_agent/web_app.py
 privacy-data-agent-local/src/privacy_data_agent/web_helpers.py
 privacy-data-agent-local/src/privacy_data_agent/workbook_anonymizer.py
+privacy-data-agent-local/src/privacy_data_agent/workbook_identifiers.py
+privacy-data-agent-local/src/privacy_data_agent/external_snapshots.py

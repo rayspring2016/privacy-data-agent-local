@@ -14,6 +14,8 @@ from openpyxl.workbook.properties import CalcProperties
 from openpyxl.utils.cell import get_column_letter, range_boundaries, coordinate_to_tuple
 from pydantic import BaseModel, ConfigDict, Field
 
+from privacy_data_agent.workbook_identifiers import linked_identifier_cells
+from privacy_data_agent.external_snapshots import freeze_external_attributes, localize_external_lookups
 from privacy_data_agent.anonymizer import AnonymizerState
 from privacy_data_agent.detectors import (
     EMPLOYEE_EMAIL_HEADERS,
@@ -74,6 +76,8 @@ class WorkbookAnonymizeResult(BaseModel):
     review_items: list[dict[str, str]] = Field(default_factory=list)
     formula_count: int = 0
     external_link_count: int = 0
+    localized_external_formula_count: int = 0
+    external_value_count: int = 0
 
 
 def _parallel_identity_tables(worksheet, header_row, headers, rows):
@@ -248,14 +252,29 @@ def anonymize_xlsx_bytes(
     if preserve_calculations:
         anonymize_salary = False
     formula_count = 0
-    original_formulas = {}
+    has_external = bool(workbook._external_links) or any(
+        cell.data_type == "f" and isinstance(cell.value, str) and "[" in cell.value
+        for sheet in workbook for row in sheet for cell in row
+    )
+    cached = load_workbook(BytesIO(content), data_only=True, read_only=True, keep_links=False) if preserve_calculations or has_external else None
+    localized_external_formula_count = 0
+    external_value_count = 0
+    if has_external:
+        headers = {sheet.title: _header_by_column(sheet, header_row or _detect_xlsx_header_row(sheet)) for sheet in workbook}
+        external_value_count = freeze_external_attributes(workbook, cached, headers)
+        localized_external_formula_count = localize_external_lookups(workbook, cached, headers)
+    # Lookup source discovery applies to both modes, independently of cache preservation.
+    original_formulas = {
+        sheet.title: {cell.coordinate: cell.value for row in sheet.iter_rows() for cell in row
+                      if cell.data_type == "f" and isinstance(cell.value, str)}
+        for sheet in workbook.worksheets
+    }
     external_link_count = len(workbook._external_links)
     for index, link in enumerate(workbook._external_links, 1):
         link.externalBook.sheetDataSet = None
         link.file_link.Target = f"external-source-{index:02d}.xlsx"
     if preserve_calculations:
         workbook.calculation = CalcProperties(calcMode="manual", fullCalcOnLoad=False, forceFullCalc=False, calcOnSave=False)
-        cached = load_workbook(BytesIO(content), data_only=True, read_only=True, keep_links=False)
         for sheet_number, (sheet, values) in enumerate(zip(workbook.worksheets, cached.worksheets), 1):
             for row, value_row in zip(sheet.iter_rows(), values.iter_rows()):
                 for cell, value in zip(row, value_row):
@@ -270,6 +289,7 @@ def anonymize_xlsx_bytes(
                     if isinstance(value.value, str) and value.data_type != "e":
                         cell.data_type = "s"
                     formula_count += 1
+    if cached:
         cached.close()
     state = AnonymizerState(seed_mapping=seed_mapping, require_unique_people=require_unique_people, allow_unverified_people=allow_unverified_people)
     row_count = 0
@@ -302,6 +322,7 @@ def anonymize_xlsx_bytes(
         sheet.title: _pivot_identity_tables(sheet, number)
         for number, sheet in enumerate(workbook.worksheets, start=1)
     }
+    identifier_cells = linked_identifier_cells(workbook, original_formulas, header_row, pivots_by_sheet)
     identity_tables = {}
     if state.require_unique_people:
         for sheet_number, sheet in enumerate(workbook.worksheets, start=1):
@@ -361,6 +382,7 @@ def anonymize_xlsx_bytes(
                         table_headers, table_rows, defer_email_only=defer_email_only, location=location,
                     )
 
+    people_by_key = {person.key: person for person in state.people}
     for worksheet in workbook.worksheets:
         resolved_header_row = header_row or _detect_xlsx_header_row(worksheet)
         header_by_column = _header_by_column(worksheet, header_row=resolved_header_row)
@@ -375,6 +397,12 @@ def anonymize_xlsx_bytes(
                 )
                 person_keys.update({(position[0], start + position[1], *position[2:]): key
                                     for position, key in keys.items()})
+
+        row_ids = {}
+        for position, key in person_keys.items():
+            person = people_by_key.get(key)
+            if person and person.employee_id:
+                row_ids.setdefault(position[0], set()).add(person.employee_id)
 
         if is_label_value:
             # 左右结构：A列=标签，B列=值，用标签决定值的实体类型
@@ -448,7 +476,15 @@ def anonymize_xlsx_bytes(
                         if header_by_column and cell.row <= resolved_header_row:
                             continue
                         column_name = header_by_column.get(cell.column, "")
-                    if preserve_calculations and preserve_analysis_number(cell.value, column_name):
+                    inferred_type = identifier_cells.get((worksheet.title, cell.row, cell.column))
+                    if inferred_type == EntityType.DEPARTMENT and not anonymize_department:
+                        inferred_type = None
+                    if (inferred_type is None and text in row_ids.get(cell.row, set())
+                            and detect_column_entity_type(column_name) is None
+                            and not any(term in column_name for term in ("期", "金额", "提成", "比例", "系数", "数", "率"))):
+                        inferred_type = EntityType.EMPLOYEE_ID
+                    if (preserve_calculations and preserve_analysis_number(cell.value, column_name)
+                            and inferred_type not in {EntityType.EMPLOYEE_ID, EntityType.ID_NUMBER, EntityType.BANK_ACCOUNT, EntityType.EMAIL}):
                         continue
                     if is_pass_through_column(
                         column_name,
@@ -459,7 +495,7 @@ def anonymize_xlsx_bytes(
                         keep_salary_groups=keep_salary_groups,
                     ):
                         continue
-                    column_type = detect_column_entity_type(column_name)
+                    column_type = inferred_type or detect_column_entity_type(column_name)
                     if text.lower() == column_name.lower() and column_type in {
                         EntityType.EMPLOYEE, EntityType.EMPLOYEE_ID, EntityType.EMAIL,
                     }:
@@ -639,6 +675,8 @@ def anonymize_xlsx_bytes(
         review_items=state.review_items,
         formula_count=formula_count,
         external_link_count=external_link_count,
+        localized_external_formula_count=localized_external_formula_count,
+        external_value_count=external_value_count,
         row_count=row_count,
         preview_dataframe=_workbook_preview_dataframe(workbook_bytes, header_row=resolved_header_row, data_only=preserve_calculations),
     )
@@ -681,6 +719,11 @@ def _detect_xlsx_header_row(worksheet) -> int:
     raw_rows: list[list[str]] = []
     for row in worksheet.iter_rows(min_row=1, max_row=3, values_only=True):
         raw_rows.append([str(c) if c is not None else "" for c in row])
+    # Group titles may contain many entity keywords; prefer an actual identity header.
+    for index, values in enumerate(raw_rows, 1):
+        normalized = {value.strip().lower() for value in values}
+        if normalized & EMPLOYEE_ID_HEADERS and normalized & (PRIMARY_NAME_HEADERS | EMPLOYEE_EMAIL_HEADERS):
+            return index
     return detect_header_row(raw_rows)
 
 

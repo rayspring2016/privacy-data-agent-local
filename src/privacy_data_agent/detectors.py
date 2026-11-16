@@ -363,6 +363,10 @@ EMPLOYEE_EMAIL_HEADERS = frozenset({
 
 def detect_column_entity_type(column_name: str) -> EntityType | None:
     normalized = _normalize_column_name(column_name)
+    if (any(term in normalized for term in ("卡号", "银行账号", "银行帐号", "收款账号", "收款帐号", "工资账号", "工资帐号"))
+            or normalized.startswith(("账号", "帐号"))
+            or normalized in {"bank_account", "bank_account_number", "bank_card"}):
+        return EntityType.BANK_ACCOUNT
     if normalized in {"客户类型", "客户标签", "客户需要合同", "客户/销售类型"} or normalized.startswith("客户拜访"):
         return None
     if re.fullmatch(r"单位\s*[：:]\s*(?:人民币)?万?元", normalized):
@@ -869,7 +873,7 @@ def preserve_analysis_number(value, column_name: str) -> bool:
     """Keep calculation inputs while continuing to mask numeric identifiers."""
     name = column_name.strip().lower()
     kind = detect_column_entity_type(column_name)
-    if kind in {EntityType.EMPLOYEE_ID, EntityType.ID_NUMBER, EntityType.PHONE, EntityType.EMAIL, EntityType.LICENSE_PLATE}:
+    if kind in {EntityType.BANK_ACCOUNT, EntityType.EMPLOYEE_ID, EntityType.ID_NUMBER, EntityType.PHONE, EntityType.EMAIL, EntityType.LICENSE_PLATE}:
         return False
     if name in {"姓名", "员工姓名", "人员姓名", "销售姓名", "员工", "销售", "employee_name", "name",
                 "客户", "客户名称", "客户名", "公司", "公司名称", "单位名称", "企业名称"}:
