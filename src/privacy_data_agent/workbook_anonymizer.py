@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from privacy_data_agent.workbook_identifiers import linked_identifier_cells
 from privacy_data_agent.external_snapshots import freeze_external_attributes, localize_external_lookups
+from privacy_data_agent.workbook_metadata import replace_workbook_metadata
 from privacy_data_agent.anonymizer import AnonymizerState
 from privacy_data_agent.detectors import (
     EMPLOYEE_EMAIL_HEADERS,
@@ -416,6 +417,8 @@ def anonymize_xlsx_bytes(
             for row in worksheet.iter_rows():
                 if row and row[0].row <= resolved_header_row:
                     continue
+                if any(cell.value is not None for cell in row):
+                    row_count += 1
                 cells = list(row)
                 if len(cells) < 2:
                     continue
@@ -596,7 +599,7 @@ def anonymize_xlsx_bytes(
                         if cell.comment.author:
                             cell.comment.author = customer_pattern.sub(replace_customer, cell.comment.author)
 
-    if preserve_calculations:
+    if state.entries:
         bindings = {}
         for entry in state.entries:
             if (entry.entity_type, entry.original, entry.identity_key) in state.current_entry_keys:
@@ -642,19 +645,37 @@ def anonymize_xlsx_bytes(
                     for cell in row:
                         location = f"第 {number} 张工作表 {cell.coordinate}（文字中的姓名）"
                         replace_name = lambda match: identity_token(match.group(0), location) if match.group(0) in person_names else match.group(0)
-                        if isinstance(cell.value, str):
+                        if isinstance(cell.value, str) and cell.data_type != "f":
                             replaced = names_pattern.sub(replace_name, cell.value)
                             if replaced != cell.value:
                                 cell.value = replaced
                                 if cell.data_type == "f":
                                     cell.data_type = "s"
-                        if cell.comment:
-                            cell.comment.text = names_pattern.sub(replace_name, cell.comment.text)
-                            if cell.comment.author:
-                                cell.comment.author = names_pattern.sub(replace_name, cell.comment.author)
+        metadata_originals = {
+            entry.original for entry in state.entries
+            if entry.entity_type != EntityType.SALARY and len(entry.original) >= 2
+            and (entry.entity_type, entry.original, entry.identity_key) in state.current_entry_keys
+        }
+        metadata_pattern = text_pattern(metadata_originals)
+        if metadata_pattern or bindings:
+            replace_metadata = lambda text: metadata_pattern.sub(
+                lambda match: identity_token(match.group(0), "文件附加信息")
+                if match.group(0) in metadata_originals else match.group(0), text,
+            ) if metadata_pattern else text
+            for number, sheet in enumerate(workbook, 1):
+                if replace_metadata(sheet.title) != sheet.title:
+                    raise IdentityReviewError(f"待核验：第 {number} 张工作表名称含敏感信息，请先改用不含敏感信息的工作表名称。")
+            chart_pattern = text_pattern({original for original in bindings if len(original) >= 2})
+            replace_chart = lambda text: chart_pattern.sub(
+                lambda match: identity_token(match.group(0), "图表文字")
+                if match.group(0) in bindings else match.group(0), text,
+            )
+            replace_workbook_metadata(workbook, replace_metadata, replace_chart)
         identities_pattern = text_pattern({original for original in bindings if len(original) >= 2 and not original.isdigit()})
         for number, sheet in enumerate(workbook.worksheets, 1):
             for address, original in original_formulas.get(sheet.title, {}).items():
+                if not preserve_calculations:
+                    original = sheet[address].value
                 formula = Tokenizer(original)
                 location = f"第 {number} 张工作表 {address}（公式文本条件）"
                 for token in formula.items:
@@ -670,6 +691,8 @@ def anonymize_xlsx_bytes(
                                                          if match.group(0) in bindings else match.group(0), literal)
                     token.value = '"' + literal.replace('"', '""') + '"'
                 original_formulas[sheet.title][address] = formula.render()
+                if not preserve_calculations:
+                    sheet[address] = formula.render()
 
     output = BytesIO()
     workbook.save(output)

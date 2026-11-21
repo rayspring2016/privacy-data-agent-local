@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zipfile import BadZipFile
+from xml.etree.ElementTree import ParseError
 
 import streamlit as st
 
@@ -1061,13 +1063,20 @@ def render_anonymize() -> None:
                 suffix = Path(uploaded_file.name).suffix.lower()
                 if suffix not in (".csv", ".xlsx"):
                     return pd.DataFrame()
-                df = read_uploaded_table(uploaded_file.name, uploaded_file.getvalue()).head(5)
+                try:
+                    df = read_uploaded_table(uploaded_file.name, uploaded_file.getvalue()).head(5)
+                except (ValueError, OSError, BadZipFile, ParseError, KeyError, TypeError):
+                    st.warning("该文件预览不可用，将在开始处理后单独校验；其他文件仍可继续处理。")
+                    return pd.DataFrame()
                 col_info = []
                 for col in df.columns:
                     col_name = str(col) if not isinstance(col, int) else f"列{col+1}"
                     if is_pass_through_column(
                         col_name,
                         anonymize_job_title=st.session_state.anonymize_job_title,
+                        anonymize_department=st.session_state.anonymize_department,
+                        anonymize_salary=st.session_state.anonymize_salary and not st.session_state.preserve_calculations,
+                        keep_salary_groups=frozenset(st.session_state.keep_salary_group),
                     ):
                         entity = None
                         action = "保留"
@@ -1115,8 +1124,7 @@ def render_anonymize() -> None:
                 key="seed_file_uploader",
                 label_visibility="collapsed",
             )
-            if seed_file is not None:
-                st.session_state.seed_file = seed_file
+            st.session_state.seed_file = seed_file
 
         # ── v1.10.0: 映射文件加密配置 ────────────────────────────────────────
         with st.expander("🔐 加密匹配文件（可选）", expanded=False):

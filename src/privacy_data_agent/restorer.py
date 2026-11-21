@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 from privacy_data_agent.models import MappingFile
+from privacy_data_agent.workbook_metadata import replace_workbook_metadata
 
 
 def _replace_all(text: str, mapping: MappingFile) -> str:
@@ -90,6 +91,7 @@ def _restore_xlsx(content: bytes, mapping: MappingFile) -> bytes:
                     elif replaced != cell.value:
                         cell.value = replaced
 
+    replace_workbook_metadata(workbook, lambda text: _replace_all(text, mapping))
     buf = BytesIO()
     workbook.save(buf)
     if cached:

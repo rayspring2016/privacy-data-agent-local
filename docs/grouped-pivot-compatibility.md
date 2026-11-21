@@ -21,3 +21,5 @@ pivot definitions and caches from exported workbooks.
 `tests/test_grouped_pivots.py` covers the original exception, both calculation
 modes, grouping index round trips, raw-cache removal, and the Streamlit upload
 flow. A user's original file still needs a retry to confirm it has this trigger.
+
+Broader release checks and known validation limits: [[release-validation-20261121]].

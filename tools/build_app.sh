@@ -28,12 +28,12 @@ rsync -a \
     "$PROJECT_DIR/src/" "$RELEASE_APP/src/"
 cp "$PROJECT_DIR/pyproject.toml" "$RELEASE_APP/pyproject.toml"
 cp "$PROJECT_DIR/README.md" "$RELEASE_APP/README.md"
+cp "$PROJECT_DIR/CHANGELOG.md" "$RELEASE_APP/CHANGELOG.md"
 echo "   ✓ Source synced"
 
 # ── Clean fat directories before packaging ─────────────────────────────
 echo "→ Cleaning fat directories..."
 rm -rf "$RELEASE_APP/.venv"                                    # dev dependencies + binary libs (~500M)
-rm -rf "$RELEASE_APP/.streamlit"                               # streamlit config (not needed locally)
 find "$RELEASE_APP/src" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 find "$RELEASE_APP/src" -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 echo "   ✓ Fat dirs cleaned"
