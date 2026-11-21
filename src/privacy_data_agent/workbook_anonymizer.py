@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl import load_workbook
+from openpyxl.descriptors.nested import NestedInteger
 from openpyxl.formula.tokenizer import Tokenizer
+from openpyxl.pivot.cache import FieldGroup
+from openpyxl.pivot.fields import Index
 from openpyxl.workbook.properties import CalcProperties
 from openpyxl.utils.cell import get_column_letter, range_boundaries, coordinate_to_tuple
 from pydantic import BaseModel, ConfigDict, Field
@@ -248,6 +251,10 @@ def anonymize_xlsx_bytes(
     allow_unverified_people: bool = False,
     preserve_calculations: bool = False,
 ) -> WorkbookAnonymizeResult:
+    # openpyxl 3.1.x declares grouped pivot <x v="..."/> entries as a descriptor
+    # class, whose from_tree is not a classmethod. Index reads/writes these entries.
+    if FieldGroup.discretePr.expected_type is NestedInteger:
+        FieldGroup.discretePr.expected_type = Index
     workbook = load_workbook(BytesIO(content))
     if preserve_calculations:
         anonymize_salary = False
